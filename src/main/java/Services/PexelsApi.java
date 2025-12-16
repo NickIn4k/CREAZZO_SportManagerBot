@@ -1,16 +1,20 @@
 package Services;
 
+import Photo.Classes.PexelsResponse;
+import com.google.gson.Gson;
 import org.example.ApiClient;
 import org.example.StandardConfig;
 
 import java.net.URLEncoder;
 import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
+import java.util.Random;
 
 public class PexelsApi {
     private static final String foto_url = "https://api.pexels.com/v1";
     private static final String video_url = "https://api.pexels.com/videos";
 
+    private final Gson gson = new Gson();
     private final ApiClient apiClient =  new ApiClient();
 
     public String searchPhoto(String query){
@@ -27,10 +31,24 @@ public class PexelsApi {
 
         // Dati richiesta HTTP GET
         String apiKey = StandardConfig.getInstance().getProps("PEXELS_API_KEY");
-        String url = videoUrl + "/search?query=" + encodedQuery + "&per_page=1";
+        String url = videoUrl + "/search?query=" + encodedQuery + "&per_page=15";
 
         // Richiesta tramite ApiClient
         HttpRequest req = apiClient.getRequest(url, "GET", null, apiKey);
         return apiClient.sendRequest(req).body();
+    }
+
+    public String getPhotoUrl(String query){
+        String json = searchPhoto(query);
+        PexelsResponse response = gson.fromJson(json, PexelsResponse.class);
+
+        if(response.photos == null || response.photos.isEmpty()){
+            return null;
+        }
+
+        // dalla lista di foto estrai una foto, poi il suo src, quindi il suo medium url
+        Random rnd = new Random();
+        int index = rnd.nextInt(response.photos.size());
+        return response.photos.get(index).src.medium;
     }
 }
