@@ -10,6 +10,8 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.Arrays;
+
 public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     private final TelegramClient telegramClient;
 
@@ -26,19 +28,35 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             long chat_id = update.getMessage().getChatId();
 
             String command = update.getMessage().getText();
+            String[] args = message_text.split(" ");
 
-            switch (command) {
-                case "/photo f1":
-                    sendPhoto(command, chat_id);
+            switch (args[0]) {
+                case "/start":
+                    startMessage(chat_id);
+                    break;
+                case "/help":
+
+                    break;
+                case "/photo":
+                    sendPhoto(args[1], chat_id);
                     break;
             }
         }
     }
 
-    private void sendPhoto(String command, long chat_id){
-        PexelsApi pexelsApi = new PexelsApi();
+    private void sendPhoto(String query, long chat_id){
+        String[] sportsAccepted = {"f1", "formula 1", "calcio", "soccer", "basketball", "WEC", "motorsport", "Tennis"};
 
-        String query = command.replace("/photo", "").trim();
+        if(!Arrays.asList(sportsAccepted).contains(query)){
+            try {
+                telegramClient.execute(buildMessage("Hey! Non hai inserito uno sport accettato 😕", chat_id));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        PexelsApi pexelsApi = new PexelsApi();
         String url = pexelsApi.getPhotoUrl(query);
 
         if(url == null){
@@ -52,6 +70,25 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
         try {
             telegramClient.execute(buildPhotoMessage(url, query, chat_id));
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void startMessage(long chat_id){
+        String msg = """
+                👋 Benvenuto in SportManagerBot!
+                
+                Con questo bot puoi:
+                🏎️ consultare informazioni sportive
+                📸 ricevere immagini a tema sport
+                🏋️ organizzare i tuoi allenamenti in palestra
+                🎮 divertirti con contenuti extra
+                
+                Usa il comando /help per scoprire tutte le funzionalità disponibili e iniziare subito!
+                """;
+        try {
+            telegramClient.execute(buildMessage(msg, chat_id));
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
