@@ -1,4 +1,4 @@
-package Models;
+package Models.Pexels;
 
 import java.util.List;
 

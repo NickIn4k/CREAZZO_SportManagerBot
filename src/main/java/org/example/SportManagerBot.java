@@ -119,23 +119,32 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
     private void helpMessage(long chatId) {
         String msg = """
-        📖 <b>Comandi disponibili</b>
-        
-        <b>/start</b> – Avvia il bot
-        <b>/help</b> – Mostra questo messaggio
-        
-        📸 <b>/photo &lt;sport&gt;</b>
-        Ricevi un’immagine sportiva
-        
-        📸 <b>/video &lt;sport&gt;</b>
-        Ricevi un video sportivo
-        
-        🏋️ <b>/training</b>
-        Gestisci allenamenti
-        
-        ⚠️ Sport supportati:
-        F1, Motorsport, WEC, Calcio, Basketball
-        """;
+            📖  <b>Comandi disponibili</b>
+            
+            <b>/start</b> – Avvia il bot
+            <b>/help</b> – Mostra questo messaggio
+            
+            📸  <b>Foto e Video</b>
+            
+            <b>/photo &lt;sport&gt;</b> – Ricevi un’immagine sportiva
+            <b>/video &lt;sport&gt;</b> – Ricevi un video sportivo
+            
+            🏎️  <b>Formula 1</b>
+            
+            <b>/f1 next</b> – Prossima gara
+            <b>/f1 last</b> – Ultima gara
+            <b>/f1 last results</b> – Classifica ultima gara
+            <b>/f1 drivers</b> – WDC aggiornata
+            <b>/f1 constructors</b> – WCC aggiornata
+            <b>/f1 calendar &lt;anno&gt;</b> – Calendario stagione
+            <b>/f1 driver &lt;nome&gt;</b> – Info pilota
+            <b>/f1 teams</b> – Lista dei team attuali
+            <b>/f1 qualifying</b> – Qualifiche ultima gara
+            
+            🏋️  <b>Personal Trainer</b>
+            
+            ⚠️  Sport supportati: F1, Motorsport, WEC, Calcio, Basketball
+            """;
         send(msg, chatId, true);
     }
 

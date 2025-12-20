@@ -1,4 +1,4 @@
-package Models;
+package Models.Pexels;
 
 public class Src {
     private String original;
