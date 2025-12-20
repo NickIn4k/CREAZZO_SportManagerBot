@@ -1,8 +1,5 @@
 package org.example;
 
-import org.apache.commons.configuration2.Configuration;
-import org.apache.commons.configuration2.builder.fluent.Configurations;
-import org.apache.commons.configuration2.ex.ConfigurationException;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 
 public class Main {
@@ -14,7 +11,7 @@ public class Main {
             System.out.println("TrainingBot successfully started!");
             Thread.currentThread().join();
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("Error: " + e.getMessage());
         }
     }
 }

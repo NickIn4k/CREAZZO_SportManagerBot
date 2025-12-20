@@ -68,6 +68,6 @@ public class PexelsApi {
             return null;
 
         // Prendi il primo file video disponibile
-        return video.video_files.get(0).link;
+        return video.video_files.getFirst().link;
     }
 }

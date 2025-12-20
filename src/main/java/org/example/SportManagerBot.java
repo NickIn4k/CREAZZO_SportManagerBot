@@ -72,7 +72,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                         • Motorsport 🚗
                         • WEC 🏎
                         • Calcio ⚽
-                        • Basketball 🏀 
+                        • Basketball 🏀
                     """;
 
         switch (args[0]) {
@@ -144,7 +144,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
         if (!Arrays.asList(sportAccepted).contains(normalizedQuery)) {
             send("""
-            😤 Sport non valido! 
+            😤 Sport non valido!
             
             Sport disponibili:
             F1, Motorsport, WEC, Calcio, Basketball
@@ -169,7 +169,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                             .build()
             );
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            System.err.println("Error: " + e.getMessage());
         }
     }
 
@@ -178,7 +178,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
         if (!Arrays.asList(sportAccepted).contains(normalizedQuery)) {
             send("""
-            😤 Sport non valido! 
+            😤 Sport non valido!
             
             Sport disponibili:
             F1, Motorsport, WEC, Calcio, Basketball
@@ -203,7 +203,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                             .build()
             );
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            System.err.println("Error: " + e.getMessage());
         }
     }
 
@@ -219,7 +219,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         try {
             telegramClient.execute(builder.build());
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            System.err.println("Error: " + e.getMessage());
         }
     }
 }
