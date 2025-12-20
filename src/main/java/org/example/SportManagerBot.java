@@ -142,7 +142,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     private void sendPhoto(String query, long chatId) {
         String betterQuery = stringNormalization(query);
 
-        if(!checkMediaErrorMessage(betterQuery, chatId))
+        if(checkMediaErrorMessage(betterQuery, chatId))
             return;
 
         PexelsApi pexelsApi = new PexelsApi();
@@ -169,7 +169,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     private void sendVideo(String query, long chatId) {
         String betterQuery = stringNormalization(query);
 
-        if(!checkMediaErrorMessage(betterQuery, chatId))
+        if(checkMediaErrorMessage(betterQuery, chatId))
             return;
 
         PexelsApi pexelsApi = new PexelsApi();
@@ -229,8 +229,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             Sport disponibili:
             F1, Motorsport, WEC, Calcio, Basketball
             """, chatId, false);
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 }
