@@ -1,5 +1,8 @@
 package org.example;
 
+import Models.Ergast.MRData;
+import Models.Ergast.Race;
+import Services.ErgastApi;
 import Services.PexelsApi;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
@@ -30,7 +33,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     private enum BotState {
         none,
         waiting_photo,
-        waiting_video
+        waiting_video,
+        waiting_f1
     }
 
     // Costruttore
@@ -59,6 +63,14 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         if (state == BotState.waiting_video) {
             userStates.put(chatId, BotState.none);
             sendVideo(messageText, chatId);
+            return;
+        }
+
+        if (state == BotState.waiting_f1) {
+            userStates.put(chatId, BotState.none);
+            // invia l’array degli argomenti come se fosse /f1 <args>
+            String[] f1Args = messageText.split(" ");
+            handleF1Command(f1Args, chatId);
             return;
         }
 
@@ -96,6 +108,39 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 }
                 else
                     sendVideo(args[1], chatId);
+                break;
+            case "/f1":
+                if (args.length == 1) {
+                    userStates.put(chatId, BotState.waiting_f1);
+                    String msg = """
+                    🏎️  <b>Comandi F1</b>
+                
+                    Scegli uno dei comandi:
+                    
+                    🏁  <b>next</b> – Prossima gara
+                      
+                    ⏮️  <b>last</b> – Ultima gara
+                      
+                    📊  <b>last results</b> – Classifica ultima gara
+                      
+                    👤  <b>drivers</b> – WDC aggiornata
+                      
+                    🏎️  <b>constructors</b> – WCC aggiornata 
+                      
+                    📅  <b>calendar &lt;anno&gt;</b> – Calendario stagione
+                      
+                    👤  <b>driver &lt;nome&gt;</b> – Info su un pilota
+                      
+                    🏢  <b>teams</b> – Lista dei team attuali
+                
+                    ℹ️  Maggiori info con il comando <b>/help</b>
+                    """;
+                    send(msg, chatId, true);
+                } else {
+                    // Elimina il primo elemento da args => non tiene più conto di "/f1"
+                    args = Arrays.copyOfRange(args, 1, args.length);
+                    handleF1Command(args, chatId);
+                }
                 break;
             default:
                 send("❓ Comando non riconosciuto. Usa /help", chatId, false);
@@ -139,7 +184,6 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             <b>/f1 calendar &lt;anno&gt;</b> – Calendario stagione
             <b>/f1 driver &lt;nome&gt;</b> – Info pilota
             <b>/f1 teams</b> – Lista dei team attuali
-            <b>/f1 qualifying</b> – Qualifiche ultima gara
             
             🏋️  <b>Personal Trainer</b>
             
@@ -200,6 +244,98 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         } catch (TelegramApiException e) {
             System.err.println("Error: " + e.getMessage());
         }
+    }
+
+    private void handleF1Command(String[] args, long chatId) {
+        if (args.length == 0) {
+            send("❌ Devi specificare un comando F1", chatId, false);
+            return;
+        }
+
+        String command = String.join(" ", args).toLowerCase();
+        ErgastApi ergastApi = new ErgastApi();
+
+        switch (command) {
+            case "next":
+                f1Next(ergastApi, chatId);
+                break;
+            case "last":
+                f1Last(ergastApi, chatId);
+                break;
+            case "last results":
+                f1LastResults(ergastApi, chatId);
+                break;
+            case "drivers":
+                MRData drivers = ergastApi.getDriverStandings();
+                send(drivers.StandingsTable.toString(), chatId, true);
+                break;
+            case "constructors":
+                MRData constructors = ergastApi.getConstructorStandings();
+                send(constructors.StandingsTable.toString(), chatId, true);
+                break;
+            case "calendar":
+                int year = java.time.Year.now().getValue();
+                if (args.length >= 2) {
+                    try {
+                        year = Integer.parseInt(args[1]);
+                    }
+                    catch (NumberFormatException e) {
+                        System.err.println("Error: " + e.getMessage());
+                    }
+                }
+                MRData calendar = ergastApi.getCalendar(year);
+                send(calendar.RaceTable.toString(), chatId, true);
+                break;
+            case "driver":
+                if (args.length < 2) {
+                    send("❌ Devi specificare un pilota", chatId, false);
+                    break;
+                }
+                // driverId è il nome del pilota => utilizzabile per una foto
+                String driverId = args[1];
+                MRData driver = ergastApi.getDriver(driverId);
+                send(driver.DriverTable.Drivers.get(0).toString(), chatId, true);
+                break;
+            case "teams":
+                MRData teams = ergastApi.getConstructors();
+                send(teams.ConstructorTable.Constructors.toString(), chatId, true);
+                break;
+
+            default:
+                send("❌ Comando F1 non riconosciuto", chatId, false);
+        }
+    }
+
+    private void f1Next(ErgastApi ergastApi, long chatId) {
+        MRData nextRaceData = ergastApi.getNextRace();
+        if (nextRaceData != null && nextRaceData.RaceTable != null && !nextRaceData.RaceTable.Races.isEmpty())
+            send(nextRaceData.RaceTable.Races.get(0).toString(), chatId, true);
+        else
+            send("😕 Nessuna prossima gara trovata", chatId, false);
+    }
+
+    private void f1Last(ErgastApi ergastApi, long chatId) {
+        MRData lastRaceData = ergastApi.getLastRace();
+        if (lastRaceData != null && lastRaceData.RaceTable != null && !lastRaceData.RaceTable.Races.isEmpty())
+            send(lastRaceData.RaceTable.Races.get(0).toString(), chatId, true);
+        else
+            send("😕 Nessuna ultima gara trovata", chatId, false);
+    }
+
+    private void f1LastResults(ErgastApi ergastApi, long chatId){
+        MRData lastResults = ergastApi.getLastRaceResults();
+        if (lastResults != null && lastResults.RaceTable != null && !lastResults.RaceTable.Races.isEmpty()) {
+            var race = lastResults.RaceTable.Races.get(0);
+
+            String output = String.format("🏁 Risultati Ultima Gara - %s, Round %s\n", race.raceName, lastResults.RaceTable.round);
+
+            for (var r : race.Results)
+                output += r.toString() + "\n";
+
+            send(output, chatId, true);
+        }
+        else
+            send("😕 Nessun risultato ultima gara", chatId, false);
     }
 
     // Metodi extra per evitare ripetizione codice

@@ -26,6 +26,7 @@ public class ApiClient {
     public HttpRequest getRequest(String url, String method, String body, String authToken) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(java.net.URI.create(url))
+                .header("User-Agent", "SportManagerBot/1.0")
                 .header("Content-Type", "application/json");
 
         if(body == null || body.isEmpty())
