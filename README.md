@@ -19,10 +19,10 @@ Il bot permette all’utente di:
 Il progetto utilizza esclusivamente API che restituiscono **dati testuali in formato JSON**.
 
 - **F1 – Ergast API**  
-  https://ergast.com/mrd/
+  https://jolpi/ergast.com/mrd/
 
-- **Motorsport (multi-serie) – MotorsportsInfo API**  
-  https://motorsportsinfo.app/
+- **WEC - TheSportsDB API**  
+  https://TheSportsDb.com/
 
 - **Basket – balldontlie API**  
   https://www.balldontlie.io/

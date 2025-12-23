@@ -31,7 +31,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
     // Sport supportati
     private static final String[] sportAccepted = {
-            "f1", "soccer",
+            "f1", "soccer", "nba",
             "basketball", "wec", "motorsport"
     };
 
@@ -99,6 +99,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                         • WEC 🏎
                         • Calcio ⚽
                         • Basketball 🏀
+                        • NBA ⛹️
                     """;
 
         switch (args[0]) {
@@ -518,7 +519,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             😤 Sport non valido!
             
             Sport disponibili:
-            F1, Motorsport, WEC, Calcio, Basketball
+            F1, Motorsport, WEC, Calcio, Basketball (NBA)
+            F1, Motorsport, WEC, Calcio, Basketball (NBA)
             """, chatId, false);
             return true;
         }
