@@ -5,19 +5,20 @@ import Models.BallDontLie.PlayersResponse;
 import Models.BallDontLie.TeamsResponse;
 import com.google.gson.Gson;
 import org.example.ApiClient;
+import org.example.StandardConfig;
 
 import java.net.http.HttpRequest;
 
 public class BallDontLieApi {
 
-    private static final String BASE_URL = "https://www.balldontlie.io/api/v1";
+    private static final String url = "https://api.balldontlie.io/v1";
 
     private final ApiClient apiClient = new ApiClient();
     private final Gson gson = new Gson();
 
     private String get(String endpoint) {
-        String url = BASE_URL + endpoint;
-        HttpRequest req = apiClient.getRequest(url, "GET", null, null);
+        String url = BallDontLieApi.url + endpoint;
+        HttpRequest req = apiClient.getRequest(url, "GET", null, StandardConfig.getInstance().getProps("BALLDONTLIE_API_KEY"));
         return apiClient.sendRequest(req).body();
     }
 

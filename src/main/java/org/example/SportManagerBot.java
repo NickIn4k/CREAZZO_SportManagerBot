@@ -1,9 +1,13 @@
 package org.example;
 
+import Models.BallDontLie.GamesResponse;
+import Models.BallDontLie.Player;
+import Models.BallDontLie.PlayersResponse;
+import Models.BallDontLie.TeamsResponse;
 import Models.Ergast.MRData;
 import Models.TheSportsDb.EventsResponse;
 import Models.TheSportsDb.Team;
-import Models.TheSportsDb.TeamsResponse;
+import Services.BallDontLieApi;
 import Services.ErgastApi;
 import Services.PexelsApi;
 import Services.TheSportsDbApi;
@@ -41,7 +45,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         waiting_photo,
         waiting_video,
         waiting_f1,
-        waiting_wec
+        waiting_wec,
+        waiting_basket
     }
 
     // Costruttore
@@ -60,32 +65,32 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
         BotState state = userStates.getOrDefault(chatId, BotState.none);
 
-        // Bot è in attesa del media (foto/video)
-        if (state == BotState.waiting_photo) {
-            userStates.put(chatId, BotState.none);
-            sendPhoto(messageText, chatId);
-            return;
-        }
-
-        if (state == BotState.waiting_video) {
-            userStates.put(chatId, BotState.none);
-            sendVideo(messageText, chatId);
-            return;
-        }
-
-        if (state == BotState.waiting_f1) {
-            userStates.put(chatId, BotState.none);
-            // invia l’array degli argomenti come se fosse /f1 <args>
-            String[] f1Args = messageText.split(" ");
-            handleF1Command(f1Args, chatId);
-            return;
-        }
-
-        if (state == BotState.waiting_wec) {
-            userStates.put(chatId, BotState.none);
-            String[] wecArgs = messageText.split(" ");
-            handleWecCommand(wecArgs, chatId);
-            return;
+        // Gestione degli stati d'attesa del bot
+        switch(state) {
+            case waiting_photo:
+                userStates.put(chatId, BotState.none);
+                sendPhoto(messageText, chatId);
+                return; // Return e non break perchè non deve accettare altro
+            case waiting_video:
+                userStates.put(chatId, BotState.none);
+                sendVideo(messageText, chatId);
+                return;
+            case waiting_f1:
+                userStates.put(chatId, BotState.none);
+                // Invia l’array degli argomenti come se fosse /f1 <args>
+                String[] f1Args = messageText.split(" ");
+                handleF1Command(f1Args, chatId);
+                return;
+            case waiting_wec:
+                userStates.put(chatId, BotState.none);
+                String[] wecArgs = messageText.split(" ");
+                handleWecCommand(wecArgs, chatId);
+                return;
+            case waiting_basket:
+                userStates.put(chatId, BotState.none);
+                String[] basketArgs = messageText.split(" ");
+                handleBasketCommand(basketArgs, chatId);
+                return;
         }
 
         String[] args = messageText.split(" ");
@@ -170,11 +175,37 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     ⏮️  <b>last</b> – Ultima gara
                     
                     📊  <b>seasons &lt;anno&gt;</b> – Stagione dell'anno scelto
+                    
+                    ℹ️  Maggiori info con il comando <b>/help</b>
                     """;
                     send(msg, chatId, true);
                 } else {
                     args = Arrays.copyOfRange(args, 1, args.length); // rimuovo "/wec"
                     handleWecCommand(args, chatId);
+                }
+                break;
+            case "/basket":
+                if (args.length == 1) {
+                    // Nessun argomento specificato, attendi input
+                    userStates.put(chatId, BotState.waiting_basket);
+                    String msg = """
+                    🏀  <b>Comandi Basket</b>
+                
+                    Scegli uno dei comandi:
+                
+                    👤  <b>players</b> – Lista giocatori (prima pagina)
+                    🔍  <b>player &lt;nome&gt;</b> – Cerca un giocatore
+                    🏀  <b>teams</b> – Lista squadre NBA
+                    📅  <b>games season &lt;anno&gt;</b> – Partite per stagione
+                    📅  <b>games team &lt;nome&gt;</b> - Partite per team
+                
+                    ℹ️  Maggiori info con il comando <b>/help</b>
+                    """;
+                    send(msg, chatId, true);
+                } else {
+                    // Rimuove "/basket" e gestisce i comandi separatamente
+                    String[] basketArgs = Arrays.copyOfRange(args, 1, args.length);
+                    handleBasketCommand(basketArgs, chatId);
                 }
                 break;
             default:
@@ -183,6 +214,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     // Metodi divisi per comando
+
+    // Start
     private void startMessage(long chatId) {
         String msg = """
         👋 Benvenuto in <b>SportManagerBot</b>!
@@ -197,6 +230,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         send(msg, chatId, true);
     }
 
+    // Help
     private void helpMessage(long chatId) {
         String msg = """
         📖 <b>Comandi disponibili</b>
@@ -224,13 +258,21 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /wec seasons &lt;anno&gt; – Stagione dell'anno scelto
         /wec teams – Lista dei team
         
+        🏀 <b>Basket NBA</b>
+        /basket players – Lista giocatori (prima pagina)
+        /basket player &lt;nome&gt; – Cerca un giocatore
+        /basket teams – Lista squadre NBA
+        /basket games season &lt;anno&gt; – Partite per stagione
+        /basket games team &lt;nome&gt; - Partite per team
+    
         🏋️ <b>Personal Trainer</b>
         ⚠️ Sport supportati: F1, Motorsport, WEC, Calcio, Basketball
         """;
         send(msg, chatId, true);
     }
 
-
+    //#region Pexels API
+    // Foto
     private void sendPhoto(String query, long chatId) {
         String betterQuery = stringNormalization(query);
 
@@ -258,6 +300,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
+    // Video
     private void sendVideo(String query, long chatId) {
         String betterQuery = stringNormalization(query);
 
@@ -284,7 +327,10 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             System.err.println("Error: " + e.getMessage());
         }
     }
+    //endregion
 
+    //#region Ergast API (F1)
+    // Metodo generico
     private void handleF1Command(String[] args, long chatId) {
         if (args.length == 0) {
             send("❌ Devi specificare un comando F1", chatId, false);
@@ -333,6 +379,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
+    // Prossima gara
     private void f1Next(ErgastApi ergastApi, long chatId) {
         MRData nextRaceData = ergastApi.getNextRace();
         if (nextRaceData != null && nextRaceData.RaceTable != null && !nextRaceData.RaceTable.Races.isEmpty())
@@ -341,6 +388,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             send("😕 Nessuna prossima gara trovata", chatId, false);
     }
 
+    // Ultima gara
     private void f1Last(ErgastApi ergastApi, long chatId) {
         MRData lastRaceData = ergastApi.getLastRace();
         if (lastRaceData != null && lastRaceData.RaceTable != null && !lastRaceData.RaceTable.Races.isEmpty())
@@ -349,6 +397,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             send("😕 Nessuna ultima gara trovata", chatId, false);
     }
 
+    // Risultati ultima gara
     private void f1LastResults(ErgastApi ergastApi, long chatId){
         MRData lastResults = ergastApi.getLastRaceResults();
         if (lastResults != null && lastResults.RaceTable != null && !lastResults.RaceTable.Races.isEmpty()) {
@@ -365,6 +414,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             send("😕 Nessun risultato ultima gara", chatId, false);
     }
 
+    // Calendario per anno
     private void f1Calendar(ErgastApi ergastApi, long chatId, String sYear) {
         int year = java.time.Year.now().getValue();
 
@@ -379,6 +429,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         send(calendar.RaceTable.toString(), chatId, true);
     }
 
+    // Dati sul pilota + inline button + immagine
     private void f1Driver(ErgastApi ergastApi, long chatId, String id) {
         MRData data = ergastApi.getDriver(id);
 
@@ -404,6 +455,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
+    // Dati sul team + inline button + immagine
     private void f1Teams(ErgastApi ergastApi, long chatId) {
         MRData teams = ergastApi.getConstructors();
 
@@ -426,7 +478,10 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             }
         }
     }
+    //#endregion
 
+    //#region TheSportsDb API (WEC)
+    // Metodo generico
     private void handleWecCommand(String[] args, long chatId) {
         if(args.length == 0) {
             send("❌ Devi specificare un comando WEC", chatId, false);
@@ -454,6 +509,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
+    // Prossima gara
     private void wecNext(TheSportsDbApi wecApi, long chatId){
         EventsResponse resp = wecApi.getNextEvents();
 
@@ -465,6 +521,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         send(resp.toString(), chatId, true);
     }
 
+    // Ultima gara
     private void wecLast(TheSportsDbApi wecApi, long chatId){
         EventsResponse resp = wecApi.getLastEvents();
 
@@ -476,6 +533,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         send(resp.toString(), chatId, true);
     }
 
+    // Stagione per anno
     private void wecSeason(TheSportsDbApi wecApi, long chatId, String season) {
         EventsResponse resp = wecApi.getSeasonEvents(season);
         if(resp == null || resp.events == null || resp.events.isEmpty()) {
@@ -484,6 +542,125 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         }
         send(resp.toString(), chatId, true);
     }
+    //#endregion
+
+    //#region BallDontLie API (Basket - NBA)
+    private void handleBasketCommand(String[] args, long chatId) {
+        if (args.length == 0) {
+            send("❌ Devi specificare un comando basket", chatId, false);
+            return;
+        }
+
+        BallDontLieApi basketApi = new BallDontLieApi();
+
+        switch (args[0].toLowerCase()) {
+            case "players":
+                basketPlayers(basketApi, chatId);
+                break;
+            case "player":
+                if (args.length >= 2) {
+                    String playerName = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+                    basketPlayerSearch(basketApi, chatId, playerName);
+                } else
+                    send("❌ Devi specificare un nome", chatId, false);
+                break;
+            case "teams":
+                basketTeams(basketApi, chatId);
+                break;
+            case "games":
+                if (args.length >= 2) {
+                    try {
+                        if (args[1].equalsIgnoreCase("season") && args.length >= 3) {
+                            int season = Integer.parseInt(args[2]);
+                            basketGamesSeason(basketApi, chatId, season);
+                        }
+                        else if (args[1].equalsIgnoreCase("team") && args.length >= 4) {
+                            int teamId = Integer.parseInt(args[2]);
+                            int season = Integer.parseInt(args[3]);
+                            basketGamesByTeam(basketApi, chatId, teamId, season);
+                        } else {
+                            send("❌ Comando partite non valido. Usa: games season <anno> o games team <id> <anno>", chatId, false);
+                        }
+                    } catch (NumberFormatException e) {
+                        send("❌ Parametro numerico non valido", chatId, false);
+                    }
+                } else
+                    send("❌ Devi specificare ulteriori parametri per le partite", chatId, false);
+                break;
+
+            default:
+                send("❌ Comando basket non riconosciuto", chatId, false);
+        }
+    }
+
+    private void basketPlayers(BallDontLieApi api, long chatId) {
+        PlayersResponse resp = api.getPlayers(1);
+        if (resp == null || resp.data == null || resp.data.isEmpty()) {
+            send("😕 Nessun giocatore trovato", chatId, false);
+            return;
+        }
+
+        send("👤 Lista giocatori (prima pagina):\n\n",chatId, false);
+        for (Player p : resp.data) {
+            send(p.toString(), chatId, false);
+        }
+    }
+
+    private void basketPlayerSearch(BallDontLieApi api, long chatId, String name) {
+        PlayersResponse resp = api.searchPlayers(name);
+        if (resp == null || resp.data == null || resp.data.isEmpty()) {
+            send("😕 Nessun giocatore trovato con il nome: " + name, chatId, false);
+            return;
+        }
+
+        String msg = "🔍 Risultati ricerca giocatore:\n\n";
+        for (Player p : resp.data)
+            msg = msg.concat(p.toString()).concat("\n");
+
+        send(msg, chatId, false);
+    }
+
+    private void basketTeams(BallDontLieApi api, long chatId) {
+        TeamsResponse resp = api.getTeams();
+        if (resp == null || resp.data == null || resp.data.isEmpty()) {
+            send("😕 Nessun team trovato", chatId, false);
+            return;
+        }
+
+        // TBD: logo
+        send("🏀 Lista squadre NBA:\n\n",  chatId, false);
+        for (var t : resp.data)
+            send(t.toString(), chatId, false);
+    }
+
+    private void basketGamesSeason(BallDontLieApi api, long chatId, int season) {
+        GamesResponse resp = api.getGamesBySeason(season);
+        if (resp == null || resp.data == null || resp.data.isEmpty()) {
+            send("😕 Nessuna partita trovata per la stagione " + season, chatId, false);
+            return;
+        }
+
+        String msg = "📅 Partite stagione " + season + ":\n\n";
+        for (var g : resp.data)
+            msg.concat(g.toString()).concat("\n");
+
+        send(msg, chatId, false);
+    }
+
+    private void basketGamesByTeam(BallDontLieApi api, long chatId, int teamId, int season) {
+        GamesResponse resp = api.getGamesByTeam(teamId, season);
+        if (resp == null || resp.data == null || resp.data.isEmpty()) {
+            send("😕 Nessuna partita trovata per il team " + teamId + " nella stagione " + season, chatId, false);
+            return;
+        }
+
+        String msg = "📅 Partite team " + teamId + " stagione " + season + ":\n\n";
+        for (var g : resp.data)
+            msg.concat(g.toString()).concat("\n");
+
+        send(msg, chatId, false);
+    }
+    //#endregion
 
     // Metodi extra per evitare ripetizione codice
     private void send(String msg, long chatId, boolean html) {
