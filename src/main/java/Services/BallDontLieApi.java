@@ -11,13 +11,13 @@ import java.net.http.HttpRequest;
 
 public class BallDontLieApi {
 
-    private static final String url = "https://api.balldontlie.io/v1";
+    private static final String base_url = "https://api.balldontlie.io/v1";
 
     private final ApiClient apiClient = new ApiClient();
     private final Gson gson = new Gson();
 
     private String get(String endpoint) {
-        String url = BallDontLieApi.url + endpoint;
+        String url = base_url + endpoint;
         HttpRequest req = apiClient.getRequest(url, "GET", null, StandardConfig.getInstance().getProps("BALLDONTLIE_API_KEY"));
         return apiClient.sendRequest(req).body();
     }

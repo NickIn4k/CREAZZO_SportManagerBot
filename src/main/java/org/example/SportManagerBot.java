@@ -447,7 +447,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         try {
             telegramClient.execute(message);
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            System.err.println("Error: " + e.getMessage());
         }
     }
 
@@ -647,8 +647,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         GamesResponse resp = api.getGamesByTeam(teamId, season);
         Team team = resp.data.getFirst().home_team;
 
-        if (resp == null || resp.data == null || resp.data.isEmpty() || team == null) {
-            send("😕 Nessuna partita trovata per il team " + team.full_name + " nella stagione " + season, chatId, false);
+        if (resp.data == null || resp.data.isEmpty() || team == null ) {
+            send("😕 Nessuna partita trovata per il team " + teamId + " nella stagione " + season, chatId, false);
             return;
         }
 
