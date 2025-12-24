@@ -1,12 +1,8 @@
 package org.example;
 
-import Models.BallDontLie.GamesResponse;
-import Models.BallDontLie.Player;
-import Models.BallDontLie.PlayersResponse;
-import Models.BallDontLie.TeamsResponse;
+import Models.BallDontLie.*;
 import Models.Ergast.MRData;
 import Models.TheSportsDb.EventsResponse;
-import Models.TheSportsDb.Team;
 import Services.BallDontLieApi;
 import Services.ErgastApi;
 import Services.PexelsApi;
@@ -197,7 +193,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     🔍  <b>player &lt;nome&gt;</b> – Cerca un giocatore
                     🏀  <b>teams</b> – Lista squadre NBA
                     📅  <b>games season &lt;anno&gt;</b> – Partite per stagione
-                    📅  <b>games team &lt;nome&gt;</b> - Partite per team
+                    📅  <b>games team &lt;id&gt; &lt;anno&gt;</b> - Partite per team
                 
                     ℹ️  Maggiori info con il comando <b>/help</b>
                     """;
@@ -263,7 +259,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /basket player &lt;nome&gt; – Cerca un giocatore
         /basket teams – Lista squadre NBA
         /basket games season &lt;anno&gt; – Partite per stagione
-        /basket games team &lt;nome&gt; - Partite per team
+        /basket games team &lt;id&gt; &lt;anno&gt; - Partite per team
     
         🏋️ <b>Personal Trainer</b>
         ⚠️ Sport supportati: F1, Motorsport, WEC, Calcio, Basketball
@@ -642,21 +638,23 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
         String msg = "📅 Partite stagione " + season + ":\n\n";
         for (var g : resp.data)
-            msg.concat(g.toString()).concat("\n");
+            msg = msg.concat(g.toString()).concat("\n");
 
         send(msg, chatId, false);
     }
 
     private void basketGamesByTeam(BallDontLieApi api, long chatId, int teamId, int season) {
         GamesResponse resp = api.getGamesByTeam(teamId, season);
-        if (resp == null || resp.data == null || resp.data.isEmpty()) {
-            send("😕 Nessuna partita trovata per il team " + teamId + " nella stagione " + season, chatId, false);
+        Team team = resp.data.getFirst().home_team;
+
+        if (resp == null || resp.data == null || resp.data.isEmpty() || team == null) {
+            send("😕 Nessuna partita trovata per il team " + team.full_name + " nella stagione " + season, chatId, false);
             return;
         }
 
-        String msg = "📅 Partite team " + teamId + " stagione " + season + ":\n\n";
+        String msg = "📅 Partite " + team.full_name + " (id: " + teamId + ") stagione " + season + ":\n\n";
         for (var g : resp.data)
-            msg.concat(g.toString()).concat("\n");
+            msg = msg.concat(g.toString()).concat("\n");
 
         send(msg, chatId, false);
     }
@@ -716,7 +714,6 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 )
                 .build();
     }
-
 
     private void sendContentPicture(String in, String url, long chatId) {
         if (in != null && url !=null && !in.isEmpty() && !url.isEmpty()) {
