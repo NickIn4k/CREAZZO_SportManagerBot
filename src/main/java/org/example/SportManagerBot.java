@@ -1,12 +1,11 @@
 package org.example;
-
+import Models.ApiFootball.fixtures.FixturesResponse;
+import Models.ApiFootball.standings.League;
+import Models.ApiFootball.standings.StandingsResponse;
 import Models.BallDontLie.*;
 import Models.Ergast.MRData;
 import Models.TheSportsDb.EventsResponse;
-import Services.BallDontLieApi;
-import Services.ErgastApi;
-import Services.PexelsApi;
-import Services.TheSportsDbApi;
+import Services.*;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -42,8 +41,16 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         waiting_video,
         waiting_f1,
         waiting_wec,
-        waiting_basket
+        waiting_basket,
+        waiting_soccer
     }
+
+    // Le leghe del calcio hanno degli id specifici
+    private static final Map<String, Integer> leaguesMap = Map.of(
+        "seriea", 135,
+        "champions", 2,
+        "worldcup", 1
+    );
 
     // Costruttore
     public SportManagerBot(String botToken) {
@@ -86,6 +93,11 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 userStates.put(chatId, BotState.none);
                 String[] basketArgs = messageText.split(" ");
                 handleBasketCommand(basketArgs, chatId);
+                return;
+            case waiting_soccer:
+                userStates.put(chatId, BotState.none);
+                String[] soccerArgs = messageText.split(" ");
+                handleSoccerCommand(soccerArgs, chatId);
                 return;
         }
 
@@ -134,21 +146,13 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     Scegli uno dei comandi:
                     
                     🏁  <b>next</b> – Prossima gara
-                    
                     ⏮️  <b>last</b> – Ultima gara
-                    
                     📊  <b>last results</b> – Classifica ultima gara
-                    
                     👤  <b>drivers</b> – WDC aggiornata
-                    
                     🏎️  <b>constructors</b> – WCC aggiornata
-                   
                     📅  <b>calendar &lt;anno&gt;</b> – Calendario stagione
-                   
                     👤  <b>driver &lt;nome&gt;</b> – Info su un pilota
-                    
                     🏢  <b>teams</b> – Lista dei team
-                
                     ℹ️  Maggiori info con il comando <b>/help</b>
                     """;
                     send(msg, chatId, true);
@@ -167,11 +171,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     Scegli uno dei comandi:
                     
                     🏁  <b>next</b> – Prossima gara
-                    
                     ⏮️  <b>last</b> – Ultima gara
-                    
                     📊  <b>seasons &lt;anno&gt;</b> – Stagione dell'anno scelto
-                    
                     ℹ️  Maggiori info con il comando <b>/help</b>
                     """;
                     send(msg, chatId, true);
@@ -202,6 +203,35 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     // Rimuove "/basket" e gestisce i comandi separatamente
                     String[] basketArgs = Arrays.copyOfRange(args, 1, args.length);
                     handleBasketCommand(basketArgs, chatId);
+                }
+                break;
+            case "/soccer":
+                if (args.length == 1) {
+                    userStates.put(chatId, BotState.waiting_soccer);
+                    String msg = """
+                    ⚽  <b>Comandi Soccer</b>
+            
+                    Scegli una lega con /soccer {lega} &lt;comando&gt;:
+            
+                    • SerieA
+                    • Champions
+                    • WorldCup
+            
+                    Dopo, scegli uno dei comandi:
+
+                    👥 <b>teams &lt;anno&gt;</b> – Lista squadre
+                    👤 <b>players &lt;teamId&gt;</b> – Giocatori di un team
+                    🔍 <b>player &lt;playerId&gt;</b> – Info giocatore
+                    📅 <b>season &lt;anno&gt;</b> – Partite stagione
+                    📊 <b>standings &lt;anno&gt;</b> – Classifica aggiornata
+            
+                    ℹ️ Maggiori info con il comando <b>/help</b>
+                    """;
+                    send(msg, chatId, true);
+                } else {
+                    // Rimuove "/soccer" e passa tutto a handleSoccerCommand
+                    String[] soccerArgs = Arrays.copyOfRange(args, 1, args.length);
+                    handleSoccerCommand(soccerArgs, chatId);
                 }
                 break;
             default:
@@ -261,6 +291,14 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /basket games season &lt;anno&gt; – Partite per stagione
         /basket games team &lt;id&gt; &lt;anno&gt; - Partite per team
     
+        ⚽ <b>Calcio</b>
+        /soccer &lt;lega&gt; – Mostra i comandi disponibili per la lega
+        /soccer &lt;lega&gt; teams &lt;anno&gt; – Lista squadre
+        /soccer &lt;lega&gt; players &lt;idTeam&gt; &lt;anno&gt; – Giocatori del team
+        /soccer &lt;lega&gt; player &lt;idGiocatore&gt; &lt;anno&gt; – Info giocatore
+        /soccer &lt;lega&gt; season &lt;anno&gt; – Partite della stagione
+        /soccer &lt;lega&gt; standings – Classifica aggiornata
+        
         🏋️ <b>Personal Trainer</b>
         ⚠️ Sport supportati: F1, Motorsport, WEC, Calcio, Basketball
         """;
@@ -660,6 +698,188 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     }
     //#endregion
 
+    //#region ApiFootball API (SerieA - Champions league - Mondiali)
+    private void handleSoccerCommand(String[] args, long chatId) {
+        if (args.length == 0) {
+            send("❌ Devi specificare una lega", chatId, false);
+            return;
+        }
+
+        FootballApi api = new FootballApi();
+        String leagueName = args[0].toLowerCase();
+        Integer leagueId = getLeagueId(leagueName); // mappa nome lega → ID lega
+
+        if (leagueId == null) {
+            send("❌ Lega non valida: " + args[0], chatId, false);
+            return;
+        }
+
+        if (args.length == 1) {
+            // Solo lega selezionata, mostra guida comandi
+            String msg = """
+            ⚽ <b>Comandi disponibili per %s:</b>
+            
+            👥 <b>teams &lt;anno&gt;</b> – Lista squadre
+            👤 <b>players &lt;teamId&gt; &lt;anno&gt;</b>– Giocatori di un team
+            🔍 <b>player &lt;playerId&gt; &lt;anno&gt;</b> – Info giocatore
+            📅 <b>season &lt;anno&gt;</b> – Partite stagione
+            📊 <b>standings &lt;anno&gt;</b> – Classifica aggiornata""".formatted(
+                args[0] != null ? args[0] : "N/A"
+            );
+            send(msg, chatId, true);
+            return;
+        }
+
+        // Rimuove il primo argomento (lega) e gestisce i comandi
+        String[] commandArgs = Arrays.copyOfRange(args, 1, args.length);
+        String cmd = commandArgs[0].toLowerCase();
+
+        switch (cmd) {
+            case "teams":
+                if (commandArgs.length >= 2) {
+                    try {
+                        int year = Integer.parseInt(commandArgs[1]);
+                        sendTeams(api, leagueId, year, chatId);
+                    } catch (NumberFormatException e) {
+                        send("❌ Anno non valido", chatId, false);
+                    }
+                } else {
+                    send("❌ Devi specificare l'anno per la lista squadre", chatId, false);
+                }
+                break;
+            case "players":
+                if (commandArgs.length >= 2) {
+                    try {
+                        int teamId = Integer.parseInt(commandArgs[1]);
+                        int year = Integer.parseInt(commandArgs[2]);
+                        sendPlayers(api, teamId, year, chatId);
+                    } catch (NumberFormatException e) {
+                        send("❌ Team ID non valido", chatId, false);
+                    }
+                } else {
+                    send("❌ Devi specificare il teamId", chatId, false);
+                }
+                break;
+            case "player":
+                if (commandArgs.length >= 2) {
+                    try {
+                        int playerId = Integer.parseInt(commandArgs[1]);
+                        int season = Integer.parseInt(commandArgs[2]);
+                        sendPlayer(api, playerId, season, chatId);
+                    } catch (NumberFormatException e) {
+                        send("❌ Player ID non valido", chatId, false);
+                    }
+                } else {
+                    send("❌ Devi specificare il playerId", chatId, false);
+                }
+                break;
+            case "next":
+            case "last":
+            case "season":
+            case "standings":
+                handleSeasonCommands(api, cmd, commandArgs, leagueId, chatId);
+                break;
+            default:
+                send("❌ Comando non riconosciuto per la lega " + leagueName, chatId, false);
+        }
+    }
+
+    private void sendTeams(FootballApi api, int leagueId, int year, long chatId){
+        Models.ApiFootball.teams.TeamsResponse resp = api.getTeams(leagueId, year);
+
+        if(resp == null || resp.response.isEmpty()) {
+            send("😕 Nessuna squadra trovata", chatId, false);
+            return;
+        }
+
+        for(var t : resp.response)
+            sendContentPicture(t.team.toString(), t.team.logo, chatId);
+    }
+
+    private void sendPlayers(FootballApi api, int teamId, int year, long chatId) {
+        Models.ApiFootball.players.PlayersResponse resp = api.getPlayersByTeamId(teamId, year);
+
+        if(resp == null || resp.response.isEmpty()) {
+            send("😕 Nessun giocatore trovato", chatId, false);
+            return;
+        }
+
+        for(var p : resp.response)
+            sendContentPicture(p.player.toString(), p.player.photo, chatId );
+    }
+
+    private void sendPlayer(FootballApi api, int playerId, int season, long chatId) {
+        Models.ApiFootball.players.PlayersResponse resp = api.getPlayerById(playerId, season);
+
+        if(resp == null || resp.response == null || resp.response.isEmpty()) {
+            send("😕 Giocatore non trovato", chatId, false);
+            return;
+        }
+
+        Models.ApiFootball.players.Player pl = resp.response.getFirst().player;
+        sendContentPicture(pl.toString(), pl.photo, chatId);
+    }
+
+    private void handleSeasonCommands(FootballApi api, String cmd, String[] args, int leagueId, long chatId) {
+        int season = 2023; // default (per il piano gratuito)
+
+        // Lettura anno se presente
+        if (args.length >= 2) {
+            try {
+                season = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                send("❌ Anno non valido", chatId, false);
+                return;
+            }
+        }
+
+        // Controllo range stagione
+        if (season < 2021 || season > 2023) {
+            send("❌ Anno non valido\nAnni accettati solo tra 2021 e 2023", chatId, false);
+            return;
+        }
+
+        switch (cmd) {
+            case "season":
+                FixturesResponse fixtures = api.getFixturesByLeague(leagueId, season);
+
+                if (fixtures == null || fixtures.response == null || fixtures.response.isEmpty()) {
+                    send("😕 Nessuna partita trovata per la stagione " + season, chatId, false);
+                    return;
+                }
+
+                int nFixtures = 4;
+                String message = "";
+
+                for (int i = 0; i < fixtures.response.size(); i++) {
+                    message = message.concat(fixtures.response.get(i).toString()).concat("\n\n");
+
+                    // Invia ogni 4 partite o alla fine
+                    if ((i + 1) % nFixtures == 0 || i == fixtures.response.size() - 1) {
+                        send(message, chatId, true);
+                        message = "";
+                    }
+                }
+                break;
+            case "standings":
+                StandingsResponse standings = api.getStandings(leagueId, season);
+
+                if (standings == null || standings.response == null || standings.response.isEmpty()) {
+                    send("😕 Classifica non disponibile", chatId, true);
+                    return;
+                }
+
+                League lg = standings.response.getFirst().league;
+                send(lg.toString(), chatId, true);
+            break;
+            default:
+                send("❌ Comando stagione non riconosciuto", chatId, false);
+                break;
+        }
+    }
+
+    //#endregion
+
     // Metodi extra per evitare ripetizione codice
     private void send(String msg, long chatId, boolean html) {
         SendMessage.SendMessageBuilder builder = SendMessage.builder()
@@ -731,5 +951,9 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         } else {
             send(in, chatId, true);
         }
+    }
+
+    private Integer getLeagueId(String name) {
+        return leaguesMap.get(name.toLowerCase());
     }
 }

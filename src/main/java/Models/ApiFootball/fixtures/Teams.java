@@ -7,8 +7,8 @@ public class Teams {
     @Override
     public String toString() {
         return """
-        🏠 Casa: %s
-        🛣️ Ospiti: %s
+        🏠 Squadra di casa: %s
+        🛣️ Squadra ospite: %s
         """.formatted(
             home != null ? home.toString() : "N/A",
             away != null ? away.toString() : "N/A"

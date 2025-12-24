@@ -1,6 +1,8 @@
 package Models.ApiFootball.players;
 
+import java.util.List;
+
 public class PlayerResponse {
     public Player player;
-    public PlayerStatistics statistics;
+    public List<PlayerStatistics> statistics;
 }

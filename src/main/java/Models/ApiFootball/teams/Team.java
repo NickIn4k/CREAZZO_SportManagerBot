@@ -12,9 +12,9 @@ public class Team {
     @Override
     public String toString() {
         return """     
-            🏟️ Nome: %s\n
-            🌍 Nazione: %s\n
-            📅 Fondazione: %d\n""".formatted(
+            🏟️ Nome: %s
+            🌍 Nazione: %s
+            📅 Fondazione: %d""".formatted(
                 name != null ? name : "N/A",
                 country != null ? country : "N/A",
                 founded

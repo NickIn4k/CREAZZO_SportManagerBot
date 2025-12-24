@@ -7,10 +7,9 @@ public class Goals {
     @Override
     public String toString() {
         return """
-        ⚽ Risultato
-        
-        🏠 Casa: %s
-        🛣️ Ospiti: %s
+        ⚽ Risultati (goal fatti)
+        🏠 Squadra di casa: %s
+        🛣️ Squadra ospite: %s
         """.formatted(
             home != null ? home.toString() : "N/A",
             away != null ? away.toString() : "N/A"

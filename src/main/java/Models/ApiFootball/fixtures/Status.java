@@ -6,19 +6,13 @@ public class Status {
     @SerializedName("long")
     public String long_;
 
-    @SerializedName("long")
+    @SerializedName("short")
     public String short_;
 
     @Override
     public String toString() {
-        return """
-        ⏱️ Stato partita
-        
-        📖 Completo: %s
-        🔖 Breve: %s
-        """.formatted(
-            long_ != null ? long_ : "N/A",
-            short_ != null ? short_ : "N/A"
+        return "%s".formatted(
+            long_ != null ? long_ : short_
         );
     }
 }

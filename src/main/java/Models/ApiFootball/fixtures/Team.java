@@ -7,9 +7,7 @@ public class Team {
 
     @Override
     public String toString() {
-        return """
-        Nome: %s
-        """.formatted(
+        return "%s".formatted(
             name != null ? name : "N/A"
         );
     }
