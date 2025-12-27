@@ -228,7 +228,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
                     👥 <b>teams &lt;anno&gt;</b> – Lista squadre
                     👤 <b>players &lt;teamId&gt;</b> – Giocatori di un team
-                    🔍 <b>player &lt;playerId&gt;</b> – Info giocatore
+                    🔍 <b>player &lt;playerId&gt; &lt;anno&gt;</b> – Info giocatore
                     🔍 <b>player &lt;nome&gt;</b> – Info giocatore
                     📅 <b>season &lt;anno&gt;</b> – Partite stagione
                     📊 <b>standings &lt;anno&gt;</b> – Classifica aggiornata
@@ -309,6 +309,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /soccer &lt;lega&gt; teams &lt;anno&gt; – Lista squadre
         /soccer &lt;lega&gt; players &lt;idTeam&gt; &lt;anno&gt; – Giocatori del team
         /soccer &lt;lega&gt; player &lt;idGiocatore&gt; &lt;anno&gt; – Info giocatore
+        /soccer &lt;lega&gt; player &lt;nome&gt; – Info giocatore
         /soccer &lt;lega&gt; season &lt;anno&gt; – Partite della stagione
         /soccer &lt;lega&gt; standings – Classifica aggiornata
         /soccer &lt;lega&gt; team &lt;nome&gt – Info team
@@ -782,7 +783,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             for (Player p : resp.data)
                 msg = msg.concat(p.toString()).concat("\n");
 
-            send(msg.toString(), chatId, false);
+            send(msg, chatId, false);
             return;
         }
 
@@ -851,7 +852,6 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         }
 
         WikiSportService wikiService = new WikiSportService();
-
         // Titolo: "{team}_{modello}"
         String wikiTitle = wikiService.toWikiCamelCase(name);
 
@@ -876,19 +876,22 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         }
 
         if (args.length == 1) {
-            // Solo lega selezionata, mostra guida comandi
-            String msg = """
-            ⚽ <b>Comandi disponibili per %s:</b>
-            
-            👥 <b>teams &lt;anno&gt;</b> – Lista squadre
-            👤 <b>players &lt;teamId&gt; &lt;anno&gt;</b>– Giocatori di un team
-            🔍 <b>player &lt;playerId&gt; &lt;anno&gt;</b> – Info giocatore
-            📅 <b>season &lt;anno&gt;</b> – Partite stagione
-            📊 <b>standings &lt;anno&gt;</b> – Classifica aggiornata""".formatted(
-                args[0] != null ? args[0] : "N/A"
-            );
-            send(msg, chatId, true);
-            return;
+           // Solo lega selezionata, mostra guida comandi
+           String msg = """
+           ⚽ <b>Comandi disponibili per %s:</b>
+           
+           👥 <b>teams &lt;anno&gt;</b> – Lista squadre
+           👤 <b>players &lt;teamId&gt;</b> – Giocatori di un team
+           🔍 <b>player &lt;playerId&gt; &lt;anno&gt;</b> – Info giocatore
+           🔍 <b>player &lt;nome&gt;</b> – Info giocatore
+           📅 <b>season &lt;anno&gt;</b> – Partite stagione
+           📊 <b>standings &lt;anno&gt;</b> – Classifica aggiornata
+           🏢 <b>team &lt;nome&gt;</b> – Info su un team
+           """.formatted(
+               args[0] != null ? args[0] : "N/A"
+           );
+           send(msg, chatId, true);
+           return;
         }
 
         // Rimuove il primo argomento (lega) e gestisce i comandi
@@ -904,9 +907,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     } catch (NumberFormatException e) {
                         send("❌ Anno non valido", chatId, false);
                     }
-                } else {
+                } else
                     send("❌ Devi specificare l'anno per la lista squadre", chatId, false);
-                }
                 break;
             case "players":
                 if (commandArgs.length >= 2) {
@@ -917,22 +919,33 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     } catch (NumberFormatException e) {
                         send("❌ Team ID non valido", chatId, false);
                     }
-                } else {
+                } else
                     send("❌ Devi specificare il teamId", chatId, false);
-                }
                 break;
             case "player":
                 if (commandArgs.length >= 2) {
                     try {
                         int playerId = Integer.parseInt(commandArgs[1]);
-                        int season = Integer.parseInt(commandArgs[2]);
-                        sendPlayer(api, playerId, season, chatId);
+                        if (commandArgs.length >= 3) {
+                            int season = Integer.parseInt(commandArgs[2]);
+                            sendPlayer(api, playerId, season, chatId);
+                            break;
+                        }
+
+                        // Altrimenti i parametri sono il nome!
+                        String playerName = String.join(" ", Arrays.copyOfRange(commandArgs, 1, commandArgs.length));
+                        soccerSpecificPlayer(chatId, playerName.trim());
                     } catch (NumberFormatException e) {
-                        send("❌ Player ID non valido", chatId, false);
+                        // Non un numero => tutto l'input è il nome!
+                        String playerName = String.join(" ", Arrays.copyOfRange(commandArgs, 1, commandArgs.length));
+                        soccerSpecificPlayer(chatId, playerName.trim());
                     }
-                } else {
-                    send("❌ Devi specificare il playerId", chatId, false);
-                }
+                } else
+                    send("❌ Devi specificare almeno il playerId o il nome del giocatore", chatId, false);
+                break;
+            case "team":
+                String teamName = String.join(" ", Arrays.copyOfRange(commandArgs, 1, commandArgs.length));
+                soccerSpecificTeam(chatId, teamName.trim());
                 break;
             case "next":
             case "last":
@@ -979,6 +992,30 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
         Models.ApiFootball.players.Player pl = resp.response.getFirst().player;
         sendContentPicture(pl.toString(), pl.photo, chatId);
+    }
+
+    private void soccerSpecificPlayer(long chatId, String playerName) {
+        if (playerName == null || playerName.isBlank()) {
+            send("❌ Nome giocatore non valido", chatId, false);
+            return;
+        }
+
+        WikiSportService wikiService = new WikiSportService();
+        String wikiTitle = wikiService.toWikiCamelCase(playerName);
+
+        wikiResponse(wikiService, playerName, wikiTitle, chatId);
+    }
+
+    private void soccerSpecificTeam(long chatId, String teamName) {
+        if (teamName == null || teamName.isBlank()) {
+            send("❌ Nome Team non valido", chatId, false);
+            return;
+        }
+
+        WikiSportService wikiService = new WikiSportService();
+        String wikiTitle = wikiService.toWikiCamelCase(teamName);
+
+        wikiResponse(wikiService, teamName, wikiTitle, chatId);
     }
 
     private void handleSeasonCommands(FootballApi api, String cmd, String[] args, int leagueId, long chatId) {
@@ -1143,7 +1180,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             if (resp.content_urls != null && resp.content_urls.desktop != null && resp.content_urls.desktop.page != null)
                 wikiLink = resp.content_urls.desktop.page;
         }else{
-            send("❌ Assicurati di aver usato i nomi corretti!", chatId, false);
+            send("❌ Assicurati di aver usato il nome corretto!", chatId, false);
             return;
         }
 
