@@ -12,11 +12,9 @@ public class Constructor {
         return """
            🏎 Team: <b>%s</b>
            🏳️ Nazionalità: %s
-           🔗 Link: %s
            """.formatted(
                 name != null ? name : "N/A",
-                nationality != null ? nationality : "N/A",
-                url != null ? url : "N/A"
+                nationality != null ? nationality : "N/A"
            );
 
     }

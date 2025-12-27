@@ -3,8 +3,6 @@ package Services;
 import Models.ApiFootball.fixtures.FixturesResponse;
 import Models.ApiFootball.players.PlayersResponse;
 import com.google.gson.Gson;
-import Models.ApiFootball.fixtures.FixtureResponse;
-import Models.ApiFootball.players.PlayerResponse;
 import Models.ApiFootball.standings.StandingsResponse;
 import Models.ApiFootball.teams.TeamsResponse;
 import org.example.ApiClient;

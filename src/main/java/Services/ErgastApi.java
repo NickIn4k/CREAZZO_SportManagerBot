@@ -5,7 +5,9 @@ import Models.Ergast.MRData;
 import com.google.gson.Gson;
 import org.example.ApiClient;
 
+import java.net.URLEncoder;
 import java.net.http.HttpRequest;
+import java.nio.charset.StandardCharsets;
 
 public class ErgastApi {
     private static final String f1_url = "https://api.jolpi.ca/ergast/f1";
@@ -65,7 +67,15 @@ public class ErgastApi {
 
     // Lista team
     public MRData getConstructors() {
-        String json = getString("/constructors");
+        String json = getString("/constructors/?limit=100&offset=0");
+        ErgastResponse resp = gson.fromJson(json, ErgastResponse.class);
+        return resp.MRData;
+    }
+
+    // Team specifico
+    public MRData getSpecificTeam(String name) {
+        String encoded = URLEncoder.encode(name, StandardCharsets.UTF_8);
+        String json = getString("/constructors/" + encoded);
         ErgastResponse resp = gson.fromJson(json, ErgastResponse.class);
         return resp.MRData;
     }

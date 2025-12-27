@@ -3,8 +3,10 @@ import Models.ApiFootball.fixtures.FixturesResponse;
 import Models.ApiFootball.standings.League;
 import Models.ApiFootball.standings.StandingsResponse;
 import Models.BallDontLie.*;
+import Models.Ergast.Constructor;
 import Models.Ergast.MRData;
 import Models.TheSportsDb.EventsResponse;
+import Models.Wiki.WikipediaSummaryResponse;
 import Services.*;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
@@ -153,6 +155,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     📅  <b>calendar &lt;anno&gt;</b> – Calendario stagione
                     👤  <b>driver &lt;nome&gt;</b> – Info su un pilota
                     🏢  <b>teams</b> – Lista dei team
+                    🏢  <b>team &lt;nome&gt;</b> – Info su un team
+                    
                     ℹ️  Maggiori info con il comando <b>/help</b>
                     """;
                     send(msg, chatId, true);
@@ -173,6 +177,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     🏁  <b>next</b> – Prossima gara
                     ⏮️  <b>last</b> – Ultima gara
                     📊  <b>seasons &lt;anno&gt;</b> – Stagione dell'anno scelto
+                    🏢  <b>team &lt;nome&gt;</b> – Info su un team
+                    
                     ℹ️  Maggiori info con il comando <b>/help</b>
                     """;
                     send(msg, chatId, true);
@@ -195,6 +201,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     🏀  <b>teams</b> – Lista squadre NBA
                     📅  <b>games season &lt;anno&gt;</b> – Partite per stagione
                     📅  <b>games team &lt;id&gt; &lt;anno&gt;</b> - Partite per team
+                    🏢  <b>team &lt;nome&gt;</b> – Info su un team
                 
                     ℹ️  Maggiori info con il comando <b>/help</b>
                     """;
@@ -224,6 +231,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     🔍 <b>player &lt;playerId&gt;</b> – Info giocatore
                     📅 <b>season &lt;anno&gt;</b> – Partite stagione
                     📊 <b>standings &lt;anno&gt;</b> – Classifica aggiornata
+                    🏢 <b>team &lt;nome&gt;</b> – Info su un team
+                    ⚠️ <b>Attenzione!</b> anni accettati tra il 2021 e il 2023.
             
                     ℹ️ Maggiori info con il comando <b>/help</b>
                     """;
@@ -276,13 +285,14 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /f1 constructors – WCC aggiornata
         /f1 calendar &lt;anno&gt; – Calendario stagione
         /f1 driver &lt;nome&gt; – Info pilota
-        /f1 teams – Lista dei team
+        /f1 teams – Lista di alcuni team storici
+        /f1 team &lt;nome&gt – Info team
         
         🏎 <b>WEC</b>
         /wec next – Prossima gara
         /wec last – Ultima gara
         /wec seasons &lt;anno&gt; – Stagione dell'anno scelto
-        /wec teams – Lista dei team
+        /wec team &lt;nome&gt – Info team
         
         🏀 <b>Basket NBA</b>
         /basket players – Lista giocatori (prima pagina)
@@ -290,6 +300,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /basket teams – Lista squadre NBA
         /basket games season &lt;anno&gt; – Partite per stagione
         /basket games team &lt;id&gt; &lt;anno&gt; - Partite per team
+        /basket team &lt;nome&gt – Info team
     
         ⚽ <b>Calcio</b>
         /soccer &lt;lega&gt; – Mostra i comandi disponibili per la lega
@@ -298,6 +309,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /soccer &lt;lega&gt; player &lt;idGiocatore&gt; &lt;anno&gt; – Info giocatore
         /soccer &lt;lega&gt; season &lt;anno&gt; – Partite della stagione
         /soccer &lt;lega&gt; standings – Classifica aggiornata
+        /soccer &lt;lega&gt; team &lt;nome&gt – Info team
         
         🏋️ <b>Personal Trainer</b>
         ⚠️ Sport supportati: F1, Motorsport, WEC, Calcio, Basketball
@@ -407,7 +419,10 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             case "teams":
                 f1Teams(ergastApi, chatId);
                 break;
-
+            case "team":
+                String name = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+                f1SpecificTeam(ergastApi, chatId, name);
+                break;
             default:
                 send("❌ Comando F1 non riconosciuto", chatId, false);
         }
@@ -463,55 +478,131 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         send(calendar.RaceTable.toString(), chatId, true);
     }
 
-    // Dati sul pilota + inline button + immagine
     private void f1Driver(ErgastApi ergastApi, long chatId, String id) {
+        WikiSportService wikiService = new WikiSportService();
         MRData data = ergastApi.getDriver(id);
 
-        if (data == null || data.DriverTable == null ||
-                data.DriverTable.Drivers == null || data.DriverTable.Drivers.isEmpty()) {
+        if (data == null || data.DriverTable == null || data.DriverTable.Drivers == null || data.DriverTable.Drivers.isEmpty()) {
             send("😕 Pilota non trovato", chatId, false);
             return;
         }
 
         var driver = data.DriverTable.Drivers.getFirst();
-        String wikiUrl = driver.url != null ? driver.url : "https://it.wikipedia.org/wiki/f1";
+        String wikiUrl = driver.url != null && !driver.url.isBlank() ? driver.url : "https://it.wikipedia.org/wiki/f1";
 
+        WikipediaSummaryResponse resp = wikiService.getFromUrl(wikiUrl);
+
+        String imgUrl = null;
+        String text = driver.toString();
+
+        if (resp != null) {
+            if (resp.extract != null && !resp.extract.isBlank())
+                text = driver.familyName + " " + driver.givenName + "\n\n" + resp.extract;
+
+            if (resp.thumbnail != null && resp.thumbnail.source != null)
+                imgUrl = resp.thumbnail.source;
+        }
+
+        sendContentPicture(null, imgUrl, chatId);
+
+        // In-line button
         SendMessage message = SendMessage.builder()
                 .chatId(chatId)
-                .text(driver.toString())
-                .replyMarkup(buildLinkButton("🏢 Wikipedia: ".concat(driver.familyName), wikiUrl))
+                .text(text)
+                .parseMode("HTML")
+                .replyMarkup(buildLinkButton("🏢 Wikipedia: " + driver.familyName, wikiUrl))
                 .build();
 
         try {
             telegramClient.execute(message);
         } catch (TelegramApiException e) {
-            System.err.println("Error: " + e.getMessage());
+            System.err.println("Errore invio messaggio pilota: " + e.getMessage());
         }
     }
 
     // Dati sul team + inline button + immagine
     private void f1Teams(ErgastApi ergastApi, long chatId) {
         MRData teams = ergastApi.getConstructors();
+        WikiSportService wikiService = new WikiSportService();
 
         if (teams == null || teams.ConstructorTable == null || teams.ConstructorTable.Constructors == null || teams.ConstructorTable.Constructors.isEmpty()) {
             send("😕 Nessun team trovato", chatId, false);
             return;
         }
 
+        // Set per tracciare i prefissi già stampati
+        Set<String> printed = new HashSet<>();
+
         for (var constructor : teams.ConstructorTable.Constructors) {
-            SendMessage message = SendMessage.builder()
-                    .chatId(chatId)
-                    .text(constructor.toString())
-                    .parseMode("HTML")
-                    .replyMarkup(buildLinkButton("🏢 Wikipedia: ".concat(constructor.name), constructor.url))
-                    .build();
-            try {
-                telegramClient.execute(message);
-            } catch (TelegramApiException e) {
-                System.err.println("Errore invio team: " + e.getMessage());
+            String prefix = constructor.name.split("-")[0].trim();
+
+            if (!printed.contains(prefix)){
+                sendSingleF1Team(chatId, wikiService, constructor);
+                printed.add(prefix);
             }
         }
     }
+
+    private void f1SpecificTeam(ErgastApi ergastApi, long chatId, String name){
+        MRData team = ergastApi.getSpecificTeam(name);
+        WikiSportService wikiService = new WikiSportService();
+
+        if (team == null || team.ConstructorTable == null || team.ConstructorTable.Constructors == null || team.ConstructorTable.Constructors.isEmpty()) {
+            send("😕 Nessun team trovato", chatId, false);
+            return;
+        }
+
+        var constructor = team.ConstructorTable.Constructors.getFirst();
+
+        sendSingleF1Team(chatId, wikiService, constructor);
+    }
+
+    private void sendSingleF1Team(long chatId, WikiSportService wikiService, Constructor constructor) {
+        if(constructor.name == null || constructor.nationality == null)
+            return;
+
+        // Testo base
+        String text = constructor.toString();
+        String imgUrl = null;
+
+        WikipediaSummaryResponse resp = null;
+
+        // Provo con url
+        if (constructor.url != null && !constructor.url.isEmpty())
+            resp = wikiService.getFromUrl(constructor.url);
+
+        // Fallback
+        if (resp == null)
+            resp = wikiService.getFromText(constructor.name);
+
+        // Se la risposta è valida e ha anche l'url dell'immagine
+        if (resp != null) {
+            if (resp.extract != null && !resp.extract.isEmpty())
+                text = constructor.name + "\n\n" + resp.extract;
+
+            if (resp.thumbnail != null && resp.thumbnail.source != null)
+                imgUrl = resp.thumbnail.source;
+        }
+
+        sendContentPicture(null, imgUrl, chatId);
+
+        // In-line button
+        String wikiLink = constructor.url != null ? constructor.url : "https://it.wikipedia.org";
+
+        SendMessage message = SendMessage.builder()
+                .chatId(chatId)
+                .text(text)
+                .parseMode("HTML")
+                .replyMarkup(buildLinkButton("🔗 Wikipedia: " + constructor.name, wikiLink))
+                .build();
+
+        try {
+            telegramClient.execute(message);
+        } catch (TelegramApiException e) {
+            System.err.println("Errore invio team: " + e.getMessage());
+        }
+    }
+
     //#endregion
 
     //#region TheSportsDb API (WEC)
@@ -935,21 +1026,20 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 .build();
     }
 
-    private void sendContentPicture(String in, String url, long chatId) {
-        if (in != null && url !=null && !in.isEmpty() && !url.isEmpty()) {
+    private void sendContentPicture(String caption, String url, long chatId) {
+        if (url != null && !url.isEmpty()) {
             try {
-                telegramClient.execute(
-                        SendPhoto.builder()
-                                .chatId(chatId)
-                                .photo(new InputFile(url))
-                                .caption(in)
-                                .build()
-                );
+                SendPhoto.SendPhotoBuilder builder = SendPhoto.builder()
+                        .chatId(chatId)
+                        .photo(new InputFile(url));
+
+                if (caption != null && !caption.isEmpty())
+                    builder.caption(caption);
+
+                telegramClient.execute(builder.build());
             } catch (TelegramApiException e) {
-                System.err.println("Errore invio: " + e.getMessage());
+                System.err.println("Errore invio foto: " + e.getMessage());
             }
-        } else {
-            send(in, chatId, true);
         }
     }
 
