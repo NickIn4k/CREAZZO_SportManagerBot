@@ -1,4 +1,5 @@
 package org.example;
+import DbModels.TrainingDay;
 import DbModels.TrainingPlan;
 import DbModels.User;
 import Models.ApiFootball.fixtures.FixturesResponse;
@@ -276,6 +277,9 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     ➕ <b>/training new &lt;nome&gt;</b> – Crea una scheda
                     📋 <b>/training list</b> – Elenco schede
                     ⭐ <b>/training select &lt;id&gt;</b> – Attiva una scheda
+                    🗑️ <b>/training remove &lt;id&gt;</b> – Rimuovi una scheda
+                    📋 <b>/training list &lt;id&gt; days</b> – Elenco allenamenti
+                    📋 <b>/training list &lt;id&gt; exercises </b> – Elenco esercizi
                     """;
                     send(msg, chatId, true);
                 } else {
@@ -353,10 +357,24 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /soccer &lt;lega&gt; team &lt;nome&gt – Info team
         
         🏋️ <b>Personal Trainer</b>
-        /training – Gestione allenamenti
-        /training new &lt;nome&gt;– Crea nuova scheda
+        /training new &lt;nome&gt; – Crea nuova scheda
         /training list – Elenco schede
         /training select &lt;id&gt; – Attiva una scheda
+        /training remove &lt;id&gt; – Rimuovi una scheda
+        /training list &lt;id&gt; days – Elenco giorni di allenamento della scheda
+        /training list &lt;id&gt; exercises – Elenco esercizi della scheda
+        
+        /trainingDay add &lt;id scheda&gt; &lt;nome giorno&gt; – Aggiungi un giorno alla scheda
+        /trainingDay remove &lt;id giorno&gt; – Rimuovi un giorno dalla scheda
+        /trainingDay list &lt;id scheda&gt; – Elenco giorni di allenamento della scheda
+        
+        /exercise add &lt;id giorno&gt; &lt;nome esercizio&gt; &lt;sets&gt; &lt;reps&gt; &lt;peso&gt; [note] – Aggiungi un esercizio
+        /exercise remove &lt;id esercizio&gt; – Rimuovi un esercizio
+        /exercise list &lt;id giorno&gt; – Elenco esercizi del giorno
+        
+        /workout start &lt;id giorno&gt; – Inizia sessione di allenamento
+        /workout complete &lt;id sessione&gt; – Completa sessione di allenamento
+        /workout list &lt;id giorno&gt; – Elenco sessioni di allenamento registrate
         
         ⚠️ Sport supportati: F1, Motorsport, WEC, Calcio, Basketball
         """;
@@ -1134,7 +1152,25 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 createTrainingPlan(db, chatId, name);
                 break;
             case "list":
-                listTrainingPlans(db, chatId);
+                if (args.length == 1)
+                    listTrainingPlans(db, chatId);
+                else {
+                    String planIdStr = args[1];
+                    int planId;
+                    try {
+                        planId = Integer.parseInt(planIdStr);
+                    } catch (NumberFormatException e) {
+                        send("⚠️ ID scheda non valida.", chatId, false);
+                        return;
+                    }
+
+                    if (args.length == 3 && args[2].equalsIgnoreCase("days"))
+                        listTrainingDays(db, chatId, planId);
+                    else if (args.length == 3 && args[2].equalsIgnoreCase("exercises"))
+                        listExercises(db, chatId, planId);
+                    else
+                        send("❌ Comando list non valido", chatId, false);
+                }
                 break;
             case "select":
                 if (args.length < 2) {
@@ -1230,6 +1266,44 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             send("✅ Scheda rimossa correttamente!", chatId, false);
         else
             send("❌ Errore durante la rimozione della scheda", chatId, false);
+    }
+
+    private void listTrainingDays(DBManager db, long chatId, int planId) {
+        TrainingPlan plan = db.getTrainingPlanById(planId);
+        if (plan == null) {
+            send("❌ Scheda non trovata.", chatId, false);
+            return;
+        }
+
+        List<TrainingDay> days = db.getTrainingDays(planId);
+        if (days.isEmpty()) {
+            send("⚠️ Nessun giorno di allenamento definito per questa scheda.", chatId, false);
+            return;
+        }
+
+        String msg = "📅 <b>Giorni della scheda \"" + plan.name + "\"</b>\n\n";
+        for (TrainingDay day : days)
+            msg = msg.concat("🗓️ ID " + day.id + " – Giorno " + day.dayOfWeek + " – Focus: " + day.focus + "\n");
+
+        send(msg, chatId, true);
+    }
+
+
+    private void listExercises(DBManager db, long chatId, int planId) {
+        TrainingPlan plan = db.getFullTrainingPlan(planId);
+        if (plan == null) {
+            send("❌ Scheda non trovata.", chatId, false);
+            return;
+        }
+
+        if(plan.getTrainingDays().isEmpty())
+            send("⚠️ Nessun allenamento o esercizio definito.", chatId, false);
+
+        String msg = "📋 <b>Esercizi della scheda</b>\n\n";
+        for (TrainingDay day : plan.getTrainingDays())
+            msg = msg.concat(day.toString() + "\n\n");
+
+        send(msg, chatId, true);
     }
     //#endregion
 

@@ -209,7 +209,6 @@ Il database gestisce:
 - giorni di allenamento
 - esercizi definiti liberamente dall’utente
 - sessioni di allenamento (log)
-- stato conversazionale del bot
 - preferenze sportive
 - richieste API
 
@@ -220,12 +219,6 @@ Memorizza gli utenti che interagiscono con il bot tramite Telegram.
 - username
 - first_name
 - created_at
-
-### ``user_state``
-Mantiene lo stato corrente della conversazione con l’utente, utile per comandi multi-step.
-- user_id
-- current_action
-- updated_at
 
 ### ``training_plans``
 Rappresenta una scheda di allenamento personalizzata per ogni utente.
@@ -278,7 +271,6 @@ Registra le richieste effettuate alle API REST per analizzare le preferenze degl
 ### Struttura e relazioni:
 ```
 users
- ├── user_state 
  ├── training_plans 
  │    └── training_days 
  │         ├── user_exercises 

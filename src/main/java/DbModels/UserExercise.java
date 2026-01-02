@@ -18,4 +18,18 @@ public class UserExercise {
         this.weight = weight;
         this.notes = notes;
     }
+
+    @Override
+    public String toString() {
+        String msg = "%s – %d x %d".formatted(name, sets, reps);
+
+        if (weight > 0)
+            msg = msg.concat(" – %.1f kg".formatted(weight));
+
+        if (notes != null && !notes.isEmpty())
+            msg = msg.concat(" (%s)".formatted(notes));
+
+        return msg;
+    }
+
 }

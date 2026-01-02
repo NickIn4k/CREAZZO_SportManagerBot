@@ -26,4 +26,22 @@ public class TrainingDay {
     public List<UserExercise> getExercises() {
         return exercises;
     }
+
+    @Override
+    public String toString() {
+        String msg = "🗓️ Giorno %d – Focus: %s\n".formatted(dayOfWeek, focus);
+
+        if (exercises.isEmpty())
+            msg = msg.concat("   ⚠️ Nessun esercizio definito\n");
+        else {
+            int i = 1;
+            for (UserExercise ex : exercises) {
+                msg = msg.concat("Esercizio " + i + ":\n" + ex.toString() + "\n");
+                i++;
+            }
+        }
+
+        return msg;
+    }
+
 }

@@ -145,8 +145,11 @@ public class DBManager {
     }
 
 
-    private TrainingPlan getTrainingPlanById(int planId) throws SQLException {
+    public TrainingPlan getTrainingPlanById(int planId){
         String query = "SELECT * FROM training_plans WHERE id = ?";
+
+        if(checkConnection())
+            return null;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setInt(1, planId);
@@ -161,6 +164,9 @@ public class DBManager {
                 rs.getString("name"),
                 rs.getBoolean("is_active")
             );
+        } catch (SQLException e) {
+            System.err.println("Errore get training_plans: " + e.getMessage());
+            return null;
         }
     }
 
@@ -492,7 +498,9 @@ public class DBManager {
 
         try {
             TrainingPlan plan = getTrainingPlanById(trainingPlanId);
-            if (plan == null) return null;
+
+            if (plan == null)
+                return null;
 
             List<TrainingDay> days = getTrainingDays(trainingPlanId);
             for (TrainingDay day : days) {
@@ -501,7 +509,7 @@ public class DBManager {
                 plan.addTrainingDay(day);
             }
             return plan;
-        } catch (SQLException e) {
+        } catch (Exception e) {
             System.err.println("Errore getFullTrainingPlan: " + e.getMessage());
             return null;
         }
