@@ -1,4 +1,5 @@
 package DbModels;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -7,16 +8,22 @@ public class TrainingPlan {
     public int userId;
     public String name;
     public boolean isActive;
-    public List<TrainingDay> trainingDays = new ArrayList<>();
+
+    private List<TrainingDay> trainingDays;
 
     public TrainingPlan(int id, int userId, String name, boolean isActive) {
         this.id = id;
         this.userId = userId;
         this.name = name;
         this.isActive = isActive;
+        this.trainingDays = new ArrayList<>();
     }
 
     public void addTrainingDay(TrainingDay day) {
-        this.trainingDays.add(day);
+        trainingDays.add(day);
+    }
+
+    public List<TrainingDay> getTrainingDays() {
+        return trainingDays;
     }
 }

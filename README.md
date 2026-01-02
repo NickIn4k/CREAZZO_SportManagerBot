@@ -202,7 +202,16 @@ Estratto di ``POM.xml``:
 
 ---
 
-## 🗄️ Struttura del Database
+## 🗄️ Struttura del Database  ``SportManager.db``
+Il database gestisce:
+- utenti Telegram
+- schede di allenamento personalizzate
+- giorni di allenamento
+- esercizi definiti liberamente dall’utente
+- sessioni di allenamento (log)
+- stato conversazionale del bot
+- preferenze sportive
+- richieste API
 
 ### ``users``
 Memorizza gli utenti che interagiscono con il bot tramite Telegram.
@@ -233,26 +242,22 @@ Definisce i giorni della settimana associati a una scheda di allenamento.
 - day_of_week (1 = Lunedì, 7 = Domenica)
 - focus
 
-### ``exercises``
-Catalogo degli esercizi disponibili nel bot.
-- id
-- name
-- muscle_group
-- description
+### ``user_exercises``
+Esercizi definiti liberamente dall’utente per uno specifico giorno.
+- id 
+- training_day_id 
+- name 
+- sets 
+- reps 
+- weight 
+- notes
 
-### ``workout_log``
+### ``workout_sessions``
 Registra le esecuzioni reali degli allenamenti, consentendo la generazione di statistiche.
 - id
 - training_day_id
 - execution_date
 - completed
-
-### ``user_stats``
-Contiene statistiche aggregate sull’attività dell’utente.
-- user_id
-- total_workouts
-- total_sets
-- last_workout
 
 ### ``favorites``
 Gestisce le preferenze sportive degli utenti (sport, team, atleti).
@@ -273,12 +278,11 @@ Registra le richieste effettuate alle API REST per analizzare le preferenze degl
 ### Struttura e relazioni:
 ```
 users
- ├── user_state
- ├── training_plans
- │    └── training_days
- │         └── day_exercises ─── exercises
- ├── workout_log
- ├── user_stats
+ ├── user_state 
+ ├── training_plans 
+ │    └── training_days 
+ │         ├── user_exercises 
+ │         └── workout_sessions 
  ├── favorites
  └── api_requests
 ```

@@ -81,15 +81,33 @@ public class DBManager {
         return null;
     }
 
-    public boolean updateUserState(long telegramId, String state) {
-        String query = "UPDATE user_state SET current_action = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)";
+    public void ensureUserState(int userId) {
+        String query = "INSERT OR IGNORE INTO user_state (user_id, current_action) VALUES (?, NULL)";
 
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, userId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Errore ensure user_state: " + e.getMessage());
+        }
+    }
+
+    public boolean updateUserState(long telegramId, String state) {
         if (checkConnection())
             return false;
 
+        User user = getUserByTelegramId(telegramId);
+
+        if (user == null)
+            return false;
+
+        ensureUserState(user.id);
+
+        String query = "UPDATE user_state SET current_action = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?";
+
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, state);
-            stmt.setLong(2, telegramId);
+            stmt.setInt(2, user.id);
             stmt.executeUpdate();
             return true;
         } catch (SQLException e) {
@@ -97,6 +115,27 @@ public class DBManager {
             return false;
         }
     }
+
+    public String getUserState(long telegramId) {
+        if (checkConnection())
+            return null;
+
+        String query = " SELECT us.current_action FROM user_state us JOIN users u ON us.user_id = u.id WHERE u.telegram_id = ? ";
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setLong(1, telegramId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next())
+                return rs.getString("current_action");
+
+        } catch (SQLException e) {
+            System.err.println("Errore select user_state: " + e.getMessage());
+        }
+
+        return null;
+    }
+
     //#endregion
 
     //#region training_plans
@@ -142,50 +181,225 @@ public class DBManager {
         }
         return plans;
     }
+
+    private TrainingPlan getTrainingPlanById(int planId) throws SQLException {
+        String query = "SELECT * FROM training_plans WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, planId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (!rs.next())
+                return null;
+
+            return new TrainingPlan(
+                rs.getInt("id"),
+                rs.getInt("user_id"),
+                rs.getString("name"),
+                rs.getBoolean("is_active")
+            );
+        }
+    }
     //#endregion
 
-    //#region exercises
-    public boolean addExercise(String name, String muscleGroup, String description) {
-        String query = "INSERT INTO exercises (name, muscle_group, description) VALUES (?, ?, ?)";
+    //#region training_days
+    public boolean addTrainingDay(int planId, int dayOfWeek, String focus) {
+        String query = "INSERT INTO training_days (plan_id, day_of_week, focus) VALUES (?, ?, ?)";
 
         if (checkConnection())
             return false;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setString(1, name);
-            stmt.setString(2, muscleGroup);
-            stmt.setString(3, description);
+            stmt.setInt(1, planId);
+            stmt.setInt(2, dayOfWeek);
+            stmt.setString(3, focus);
             stmt.executeUpdate();
             return true;
         } catch (SQLException e) {
-            System.err.println("Errore insert exercise: " + e.getMessage());
+            System.err.println("Errore insert training_day: " + e.getMessage());
             return false;
         }
     }
 
-    public List<Exercise> getExercisesByMuscle(String muscleGroup) {
-        String query = "SELECT * FROM exercises WHERE muscle_group = ?";
-        List<Exercise> exercises = new ArrayList<>();
+    public List<TrainingDay> getTrainingDays(int planId) {
+        String query = "SELECT * FROM training_days WHERE plan_id = ?";
+        List<TrainingDay> days = new ArrayList<>();
+
+        if (checkConnection())
+            return days;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, planId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                days.add(new TrainingDay(
+                    rs.getInt("id"),
+                    rs.getInt("plan_id"),
+                    rs.getInt("day_of_week"),
+                    rs.getString("focus")
+                ));
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore select training_days: " + e.getMessage());
+        }
+        return days;
+    }
+    //#endregion
+
+    //#region user_exercises
+    public boolean addUserExercise(int trainingDayId, String name, int sets, int reps, double weight, String notes) {
+        String query = "INSERT INTO user_exercises (training_day_id, name, sets, reps, weight, notes) VALUES (?, ?, ?, ?, ?, ?)";
+
+        if (checkConnection())
+            return false;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, trainingDayId);
+            stmt.setString(2, name);
+            stmt.setInt(3, sets);
+            stmt.setInt(4, reps);
+            stmt.setDouble(5, weight);
+            stmt.setString(6, notes);
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Errore insert user_exercise: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public List<UserExercise> getUserExercises(int trainingDayId) {
+        String query = "SELECT * FROM user_exercises WHERE training_day_id = ?";
+        List<UserExercise> exercises = new ArrayList<>();
 
         if (checkConnection())
             return exercises;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setString(1, muscleGroup);
+            stmt.setInt(1, trainingDayId);
             ResultSet rs = stmt.executeQuery();
-
             while (rs.next()) {
-                exercises.add(new Exercise(
+                exercises.add(new UserExercise(
                     rs.getInt("id"),
+                    rs.getInt("training_day_id"),
                     rs.getString("name"),
-                    rs.getString("muscle_group"),
-                    rs.getString("description")
+                    rs.getInt("sets"),
+                    rs.getInt("reps"),
+                    rs.getDouble("weight"),
+                    rs.getString("notes")
                 ));
             }
         } catch (SQLException e) {
-            System.err.println("Errore select exercises: " + e.getMessage());
+            System.err.println("Errore select user_exercises: " + e.getMessage());
         }
         return exercises;
+    }
+
+    public boolean removeUserExercise(int exerciseId) {
+        String query = "DELETE FROM user_exercises WHERE id = ?";
+
+        if (checkConnection())
+            return false;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, exerciseId);
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Errore delete user_exercise: " + e.getMessage());
+            return false;
+        }
+    }
+    //#endregion
+
+    //#region workout_sessions
+    public boolean addWorkoutSession(int trainingDayId) {
+        String query = "INSERT INTO workout_sessions (training_day_id, completed) VALUES (?, 1)";
+
+        if (checkConnection())
+            return false;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, trainingDayId);
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Errore insert workout_session: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public List<WorkoutSession> getWorkoutSessions(int trainingDayId) {
+        String query = " SELECT * FROM workout_sessions WHERE training_day_id = ? GROUP BY execution_date ORDER BY  DESC";
+
+        List<WorkoutSession> list = new ArrayList<>();
+
+        if (checkConnection())
+            return list;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, trainingDayId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                list.add(new WorkoutSession(
+                    rs.getInt("id"),
+                    rs.getInt("training_day_id"),
+                    rs.getTimestamp("execution_date").toLocalDateTime(),
+                    rs.getBoolean("completed")
+                ));
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore select workout_sessions: " + e.getMessage());
+        }
+
+        return list;
+    }
+
+    public WorkoutSession getLastWorkoutSession(int trainingDayId) {
+        String query = "SELECT * FROM workout_sessions WHERE training_day_id = ? GROUP BY execution_date ORDER BY DESC LIMIT 1 ";
+
+        if (checkConnection())
+            return null;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, trainingDayId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return new WorkoutSession(
+                    rs.getInt("id"),
+                    rs.getInt("training_day_id"),
+                    rs.getTimestamp("execution_date").toLocalDateTime(),
+                    rs.getBoolean("completed")
+                );
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore select last workout_session: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    public int countWorkoutsByPlan(int planId) {
+        String query = " SELECT COUNT(ws.id) FROM workout_sessions ws JOIN training_days td ON ws.training_day_id = td.id WHERE td.plan_id = ?";
+
+        if (checkConnection())
+            return 0;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, planId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next())
+                return rs.getInt(1);
+
+        } catch (SQLException e) {
+            System.err.println("Errore count workout_sessions: " + e.getMessage());
+        }
+
+        return 0;
     }
     //#endregion
 
@@ -222,99 +436,10 @@ public class DBManager {
 
             while (rs.next())
                 list.add(rs.getString("value"));
-
         } catch (SQLException e) {
             System.err.println("Errore select favorites: " + e.getMessage());
         }
         return list;
-    }
-    //#endregion
-
-    //#region workout_log
-    public boolean addWorkoutLog(int trainingDayId, String executionDate, boolean completed) {
-        String query = "INSERT INTO workout_log (training_day_id, execution_date, completed) VALUES (?, ?, ?)";
-
-        if (checkConnection())
-            return false;
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, trainingDayId);
-            stmt.setString(2, executionDate);
-            stmt.setBoolean(3, completed);
-            stmt.executeUpdate();
-            return true;
-        } catch (SQLException e) {
-            System.err.println("Errore insert workout_log: " + e.getMessage());
-            return false;
-        }
-    }
-
-    public List<WorkoutLog> getWorkoutLogsByDay(int trainingDayId) {
-        String query = "SELECT * FROM workout_log WHERE training_day_id = ?";
-        List<WorkoutLog> logs = new ArrayList<>();
-
-        if (checkConnection())
-            return logs;
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, trainingDayId);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                logs.add(new WorkoutLog(
-                    rs.getInt("id"),
-                    rs.getInt("training_day_id"),
-                    rs.getString("execution_date"),
-                    rs.getBoolean("completed")
-                ));
-            }
-        } catch (SQLException e) {
-            System.err.println("Errore select workout_log: " + e.getMessage());
-        }
-        return logs;
-    }
-    //#endregion
-
-    //#region training_days
-    public boolean addTrainingDay(int planId, int dayOfWeek, String focus) {
-        String query = "INSERT INTO training_days (plan_id, day_of_week, focus) VALUES (?, ?, ?)";
-
-        if (checkConnection())
-            return false;
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, planId);
-            stmt.setInt(2, dayOfWeek);
-            stmt.setString(3, focus);
-            stmt.executeUpdate();
-            return true;
-        } catch (SQLException e) {
-            System.err.println("Errore insert training_day: " + e.getMessage());
-            return false;
-        }
-    }
-
-    public List<TrainingDay> getTrainingDays(int planId) {
-        String query = "SELECT * FROM training_days WHERE plan_id = ?";
-        List<TrainingDay> days = new ArrayList<>();
-
-        if (checkConnection())
-            return days;
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, planId);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                days.add(new TrainingDay(
-                    rs.getInt("id"),
-                    rs.getInt("plan_id"),
-                    rs.getInt("day_of_week"),
-                    rs.getString("focus")
-                ));
-            }
-        } catch (SQLException e) {
-            System.err.println("Errore select training_days: " + e.getMessage());
-        }
-        return days;
     }
     //#endregion
 
@@ -348,6 +473,7 @@ public class DBManager {
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setInt(1, userId);
             ResultSet rs = stmt.executeQuery();
+
             while (rs.next()) {
                 requests.add(new ApiRequest(
                     rs.getInt("id"),
@@ -365,140 +491,26 @@ public class DBManager {
     }
     //#endregion
 
-    //#region day_exercises
-    public boolean addExerciseToDay(int trainingDayId, int exerciseId, int sets, int reps) {
-        String query = "INSERT INTO day_exercises (training_day_id, exercise_id, sets, reps) VALUES (?, ?, ?, ?)";
-
-        if (checkConnection())
-            return false;
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, trainingDayId);
-            stmt.setInt(2, exerciseId);
-            stmt.setInt(3, sets);
-            stmt.setInt(4, reps);
-            stmt.executeUpdate();
-            return true;
-        } catch (SQLException e) {
-            System.err.println("Errore insert day_exercises: " + e.getMessage());
-            return false;
-        }
-    }
-
-    // Recupera tutti gli esercizi associati a un giorno
-    public List<DayExercise> getExercisesForDay(int trainingDayId) {
-        String query = "SELECT * FROM day_exercises WHERE training_day_id = ?";
-        List<DayExercise> list = new ArrayList<>();
-
-        if (checkConnection())
-            return list;
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, trainingDayId);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                list.add(new DayExercise(
-                    rs.getInt("id"),
-                    rs.getInt("training_day_id"),
-                    rs.getInt("exercise_id"),
-                    rs.getInt("sets"),
-                    rs.getInt("reps")
-                ));
-            }
-        } catch (SQLException e) {
-            System.err.println("Errore select day_exercises: " + e.getMessage());
-        }
-        return list;
-    }
-
-    public boolean removeExerciseFromDay(int dayExerciseId) {
-        String query = "DELETE FROM day_exercises WHERE id = ?";
-
-        if (checkConnection())
-            return false;
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, dayExerciseId);
-            stmt.executeUpdate();
-            return true;
-        } catch (SQLException e) {
-            System.err.println("Errore delete day_exercises: " + e.getMessage());
-            return false;
-        }
-    }
-    //#endregion
-
-    // Ritorna l'intera scheda di allenamento con giorni ed esercizi
+    //#region helper: full plan
     public TrainingPlan getFullTrainingPlan(int trainingPlanId) {
         if (checkConnection())
             return null;
 
         try {
             TrainingPlan plan = getTrainingPlanById(trainingPlanId);
-
-            if (plan == null)
-                return null;
+            if (plan == null) return null;
 
             List<TrainingDay> days = getTrainingDays(trainingPlanId);
             for (TrainingDay day : days) {
-                loadExercisesForDay(day);  // Tutti gli esercizi del giorno
+                List<UserExercise> exercises = getUserExercises(day.id);
+                day.setExercises(exercises);
                 plan.addTrainingDay(day);
             }
-
             return plan;
         } catch (SQLException e) {
             System.err.println("Errore getFullTrainingPlan: " + e.getMessage());
             return null;
         }
-    }
-
-    //#region helper
-    private TrainingPlan getTrainingPlanById(int planId) throws SQLException {
-        String query = "SELECT * FROM training_plans WHERE id = ?";
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, planId);
-            ResultSet rs = stmt.executeQuery();
-
-            if (!rs.next())
-                return null;
-
-            return new TrainingPlan(
-                rs.getInt("id"),
-                rs.getInt("user_id"),
-                rs.getString("name"),
-                rs.getBoolean("is_active")
-            );
-        }
-    }
-
-    private void loadExercisesForDay(TrainingDay day) throws SQLException {
-        List<DayExercise> dayExercises = getExercisesForDay(day.id);
-
-        for (DayExercise de : dayExercises) {
-            Exercise ex = getExerciseById(de.exerciseId);
-            if (ex != null)
-                day.addDayExercise(de, ex);
-        }
-    }
-
-    private Exercise getExerciseById(int exerciseId) throws SQLException {
-        String query = "SELECT * FROM exercises WHERE id = ?";
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, exerciseId);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                return new Exercise(
-                    rs.getInt("id"),
-                    rs.getString("name"),
-                    rs.getString("muscle_group"),
-                    rs.getString("description")
-                );
-            }
-        }
-        return null;
     }
     //#endregion
 }

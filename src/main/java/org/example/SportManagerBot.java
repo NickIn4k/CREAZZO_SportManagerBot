@@ -315,6 +315,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /soccer &lt;lega&gt; team &lt;nome&gt – Info team
         
         🏋️ <b>Personal Trainer</b>
+        
         ⚠️ Sport supportati: F1, Motorsport, WEC, Calcio, Basketball
         """;
 

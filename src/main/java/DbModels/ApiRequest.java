@@ -17,3 +17,4 @@ public class ApiRequest {
         this.requestedAt = requestedAt;
     }
 }
+
