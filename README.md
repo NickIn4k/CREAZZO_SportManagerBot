@@ -261,7 +261,7 @@ Gestisce le preferenze sportive degli utenti (sport, team, atleti).
 - category (es. F1, NBA, Calcio)
 - value (es. Ferrari, Lakers)
 
-### ``api_usage``
+### ``api_requests``
 Registra le richieste effettuate alle API REST per analizzare le preferenze degli utenti e generare statistiche globali.
 - id
 - user_id
