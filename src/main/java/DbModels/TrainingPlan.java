@@ -26,4 +26,7 @@ public class TrainingPlan {
     public List<TrainingDay> getTrainingDays() {
         return trainingDays;
     }
+    public String toString() {
+        return "🆔 %d – %s%s".formatted(id, name, isActive ? " ⭐" : " 🔒");
+    }
 }

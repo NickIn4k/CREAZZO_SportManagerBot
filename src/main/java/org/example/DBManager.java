@@ -81,61 +81,6 @@ public class DBManager {
         return null;
     }
 
-    public void ensureUserState(int userId) {
-        String query = "INSERT OR IGNORE INTO user_state (user_id, current_action) VALUES (?, NULL)";
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, userId);
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            System.err.println("Errore ensure user_state: " + e.getMessage());
-        }
-    }
-
-    public boolean updateUserState(long telegramId, String state) {
-        if (checkConnection())
-            return false;
-
-        User user = getUserByTelegramId(telegramId);
-
-        if (user == null)
-            return false;
-
-        ensureUserState(user.id);
-
-        String query = "UPDATE user_state SET current_action = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?";
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setString(1, state);
-            stmt.setInt(2, user.id);
-            stmt.executeUpdate();
-            return true;
-        } catch (SQLException e) {
-            System.err.println("Errore update user_state: " + e.getMessage());
-            return false;
-        }
-    }
-
-    public String getUserState(long telegramId) {
-        if (checkConnection())
-            return null;
-
-        String query = " SELECT us.current_action FROM user_state us JOIN users u ON us.user_id = u.id WHERE u.telegram_id = ? ";
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setLong(1, telegramId);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next())
-                return rs.getString("current_action");
-
-        } catch (SQLException e) {
-            System.err.println("Errore select user_state: " + e.getMessage());
-        }
-
-        return null;
-    }
-
     //#endregion
 
     //#region training_plans
@@ -182,6 +127,24 @@ public class DBManager {
         return plans;
     }
 
+    public boolean removeTrainingPlan(int userId, int planId) {
+        String query = "DELETE FROM training_plans WHERE user_id = ? AND id = ?";
+
+        if (checkConnection())
+            return false;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, planId);
+            int affectedRows = stmt.executeUpdate();
+            return affectedRows > 0; // true se è stata eliminata almeno una riga
+        } catch (SQLException e) {
+            System.err.println("Errore delete training_plan: " + e.getMessage());
+            return false;
+        }
+    }
+
+
     private TrainingPlan getTrainingPlanById(int planId) throws SQLException {
         String query = "SELECT * FROM training_plans WHERE id = ?";
 
@@ -200,6 +163,37 @@ public class DBManager {
             );
         }
     }
+
+    public void setAllTrainingPlansInactive(int userId) {
+        String query = "UPDATE training_plans SET is_active = 0 WHERE user_id = ?";
+
+        if (checkConnection())
+            return;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, userId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Errore update all training_plans: " + e.getMessage());
+        }
+    }
+
+    public boolean setTrainingPlanActive(int planId) {
+        String query = "UPDATE training_plans SET is_active = 1 WHERE id = ?";
+
+        if (checkConnection())
+            return false;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, planId);
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Errore update training_plan active: " + e.getMessage());
+            return false;
+        }
+    }
+
     //#endregion
 
     //#region training_days

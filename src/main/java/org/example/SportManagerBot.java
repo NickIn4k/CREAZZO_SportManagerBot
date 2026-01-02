@@ -1,4 +1,6 @@
 package org.example;
+import DbModels.TrainingPlan;
+import DbModels.User;
 import Models.ApiFootball.fixtures.FixturesResponse;
 import Models.ApiFootball.standings.League;
 import Models.ApiFootball.standings.StandingsResponse;
@@ -44,7 +46,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         waiting_f1,
         waiting_wec,
         waiting_basket,
-        waiting_soccer
+        waiting_soccer,
+        waiting_training
     }
 
     // Le leghe del calcio hanno degli id specifici
@@ -67,6 +70,18 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
         String messageText = update.getMessage().getText().trim();
         long chatId = update.getMessage().getChatId();
+        String username = update.getMessage().getFrom().getUserName();
+        String firstName = update.getMessage().getFrom().getFirstName();
+
+        // Inserisci nel db il nuovo utente
+        User user = DBManager.getInstance().getUserByTelegramId(chatId);
+        if (user == null) {
+            boolean created = DBManager.getInstance().addUser(chatId, username, firstName);
+            if (!created) {
+                send("❌ Errore: impossibile registrarti nel database.", chatId, false);
+                return;
+            }
+        }
 
         BotState state = userStates.getOrDefault(chatId, BotState.none);
 
@@ -100,6 +115,11 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 userStates.put(chatId, BotState.none);
                 String[] soccerArgs = messageText.split(" ");
                 handleSoccerCommand(soccerArgs, chatId);
+                return;
+            case waiting_training:
+                userStates.put(chatId, BotState.none);
+                String[] trainingArgs = messageText.split(" ");
+                handleTrainingCommand(trainingArgs, chatId);
                 return;
         }
 
@@ -245,6 +265,24 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     handleSoccerCommand(soccerArgs, chatId);
                 }
                 break;
+            case "/training":
+                if (args.length == 1) {
+                    userStates.put(chatId, BotState.waiting_training);
+                    String msg = """
+                    🏋️ <b>Gestione Allenamenti</b>
+                    
+                    Comandi disponibili:
+                    
+                    ➕ <b>/training new &lt;nome&gt;</b> – Crea una scheda
+                    📋 <b>/training list</b> – Elenco schede
+                    ⭐ <b>/training select &lt;id&gt;</b> – Attiva una scheda
+                    """;
+                    send(msg, chatId, true);
+                } else {
+                    String[] trainingArgs = Arrays.copyOfRange(args, 1, args.length);
+                    handleTrainingCommand(trainingArgs, chatId);
+                }
+                break;
             default:
                 send("❓ Comando non riconosciuto. Usa /help", chatId, false);
         }
@@ -315,6 +353,10 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /soccer &lt;lega&gt; team &lt;nome&gt – Info team
         
         🏋️ <b>Personal Trainer</b>
+        /training – Gestione allenamenti
+        /training new &lt;nome&gt;– Crea nuova scheda
+        /training list – Elenco schede
+        /training select &lt;id&gt; – Attiva una scheda
         
         ⚠️ Sport supportati: F1, Motorsport, WEC, Calcio, Basketball
         """;
@@ -1077,6 +1119,118 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
+    //#endregion
+
+    //#region Training DB
+    private void handleTrainingCommand(String[] args, long chatId) {
+        DBManager db = DBManager.getInstance();
+        switch (args[0].toLowerCase()) {
+            case "new":
+                if (args.length < 2) {
+                    send("❌ Manca il nome della scheda!", chatId, false);
+                    return;
+                }
+                String name = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+                createTrainingPlan(db, chatId, name);
+                break;
+            case "list":
+                listTrainingPlans(db, chatId);
+                break;
+            case "select":
+                if (args.length < 2) {
+                    send("❌ Manca l'id della scheda", chatId, false);
+                    return;
+                }
+                selectTrainingPlan(db, chatId, args[1]);
+                break;
+            case "remove":
+                if (args.length < 2) {
+                    send("❌ Manca l'id della scheda", chatId, false);
+                    return;
+                }
+                deleteTrainingPlan(db, chatId, args[1]);
+                break;
+            default:
+                send("❌ Comando training non valido", chatId, false);
+        }
+    }
+
+    private void createTrainingPlan(DBManager db, long chatId, String name) {
+        User user = db.getUserByTelegramId(chatId);
+        boolean created = db.createTrainingPlan(user.id, name, false);
+        if (created)
+            send("✅ Scheda \"" + name + "\" creata correttamente!", chatId, false);
+        else
+            send("❌ Errore durante la creazione della scheda", chatId, false);
+    }
+
+    private void listTrainingPlans(DBManager db, long chatId) {
+        User user = db.getUserByTelegramId(chatId);
+        List<TrainingPlan> plans = db.getTrainingPlans(user.id);
+
+        if (plans.isEmpty()) {
+            send("❌ Non hai ancora creato schede di allenamento", chatId, false);
+            return;
+        }
+
+        String msg = "📋 <b>Le tue schede</b>\n\n";
+
+        for (TrainingPlan plan : plans)
+            msg = msg.concat(plan.toString() + "\n");
+
+        send(msg, chatId, true);
+    }
+
+    private void selectTrainingPlan(DBManager db, long chatId, String planIdStr) {
+        User user = db.getUserByTelegramId(chatId);
+
+        int planId;
+        try {
+            planId = Integer.parseInt(planIdStr);
+        } catch (NumberFormatException e) {
+            send("⚠️ ID non valido.", chatId, false);
+            return;
+        }
+
+        List<TrainingPlan> plans = db.getTrainingPlans(user.id);
+        boolean found = false;
+        for (TrainingPlan plan : plans) {
+            if (plan.id == planId) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            send("❌ Scheda non trovata.", chatId, false);
+            return;
+        }
+
+        db.setAllTrainingPlansInactive(user.id);
+
+        if (db.setTrainingPlanActive(planId))
+            send("✅ Scheda selezionata con successo!", chatId, false);
+        else
+            send("❌ Errore nell'attivare la scheda.", chatId, false);
+    }
+
+    private void deleteTrainingPlan(DBManager db, long chatId, String planIdStr) {
+        User user = db.getUserByTelegramId(chatId);
+
+        int planId;
+        try {
+            planId = Integer.parseInt(planIdStr);
+        } catch (NumberFormatException e) {
+            send("⚠️ ID non valido.", chatId, false);
+            return;
+        }
+
+        boolean removed = db.removeTrainingPlan(user.id, planId);
+        if (removed)
+            send("✅ Scheda rimossa correttamente!", chatId, false);
+        else
+            send("❌ Errore durante la rimozione della scheda", chatId, false);
+    }
     //#endregion
 
     // Metodi extra per evitare ripetizione codice
