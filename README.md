@@ -192,10 +192,93 @@ Estratto di ``POM.xml``:
 
 ---
 
-# 🗣️ Esempi di conversazione
+## 🗣️ Esempi di conversazione
 <img src="assets/start.jpeg" alt="Esempio di utilizzo del bot" width="49%"/>
 <img src="assets/photo_video.jpeg" alt="Esempio di utilizzo del bot" width="49%"/>
 <img src="assets/f1_status.jpeg" alt="Esempio di utilizzo del bot" width="49%"/>
 <img src="assets/basket_wiki.jpeg" alt="Esempio di utilizzo del bot" width="49%"/>
 <img src="assets/soccer_wiki.jpeg" alt="Esempio di utilizzo del bot" width="49%"/>
 <img src="assets/soccer_example.jpeg" alt="Esempio di utilizzo del bot" width="49%"/>
+
+---
+
+## 🗄️ Struttura del Database
+
+### ``users``
+Memorizza gli utenti che interagiscono con il bot tramite Telegram.
+- id
+- telegram_id (univoco)
+- username
+- first_name
+- created_at
+
+### ``user_state``
+Mantiene lo stato corrente della conversazione con l’utente, utile per comandi multi-step.
+- user_id
+- current_action
+- updated_at
+
+### ``training_plans``
+Rappresenta una scheda di allenamento personalizzata per ogni utente.
+- id
+- user_id
+- name
+- is_active
+- created_at
+
+### ``training_days``
+Definisce i giorni della settimana associati a una scheda di allenamento.
+- id
+- plan_id
+- day_of_week (1 = Lunedì, 7 = Domenica)
+- focus
+
+### ``exercises``
+Catalogo degli esercizi disponibili nel bot.
+- id
+- name
+- muscle_group 
+- description
+
+### ``workout_log``
+Registra le esecuzioni reali degli allenamenti, consentendo la generazione di statistiche.
+- id
+- training_day_id
+- execution_date
+- completed
+
+### ``user_stats``
+Contiene statistiche aggregate sull’attività dell’utente.
+- user_id
+- total_workouts
+- total_sets
+- last_workout
+
+### ``favorites``
+Gestisce le preferenze sportive degli utenti (sport, team, atleti).
+- id
+- user_id
+- category (es. F1, NBA, Calcio)
+- value (es. Ferrari, Lakers)
+
+### ``api_usage``
+Registra le richieste effettuate alle API REST per analizzare le preferenze degli utenti e generare statistiche globali.
+- id
+- user_id
+- sport
+- entity
+- endpoint
+- requested_at
+
+### Struttura e relazioni:
+```
+users
+ ├── user_state
+ ├── training_plans
+ │    └── training_days
+ │         └── day_exercises ─── exercises
+ ├── workout_log
+ ├── user_stats
+ ├── favorites
+ └── api_requests
+```
