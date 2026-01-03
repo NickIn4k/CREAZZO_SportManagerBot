@@ -506,46 +506,6 @@ public class DBManager {
 
     //#endregion
 
-    //#region favorites
-    public boolean addFavorite(int userId, String category, String value) {
-        String query = "INSERT INTO favorites (user_id, category, value) VALUES (?, ?, ?)";
-
-        if (checkConnection())
-            return false;
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, userId);
-            stmt.setString(2, category);
-            stmt.setString(3, value);
-            stmt.executeUpdate();
-            return true;
-        } catch (SQLException e) {
-            System.err.println("Errore insert favorite: " + e.getMessage());
-            return false;
-        }
-    }
-
-    public List<String> getFavorites(int userId, String category) {
-        String query = "SELECT value FROM favorites WHERE user_id = ? AND category = ?";
-        List<String> list = new ArrayList<>();
-
-        if (checkConnection())
-            return list;
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, userId);
-            stmt.setString(2, category);
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next())
-                list.add(rs.getString("value"));
-        } catch (SQLException e) {
-            System.err.println("Errore select favorites: " + e.getMessage());
-        }
-        return list;
-    }
-    //#endregion
-
     //#region api_requests
     public boolean addApiRequest(int userId, String sport, String entity, String endpoint) {
         String query = "INSERT INTO api_requests (user_id, sport, entity, endpoint, requested_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
@@ -671,6 +631,33 @@ public class DBManager {
             return new ApiSummary(total, sport, entity);
         } catch (SQLException e) {
             System.err.println("Errore api summary: " + e.getMessage());
+        }
+        return null;
+    }
+    //#endregion
+
+    //#region sport_meme
+    public SportMeme getRandomMeme(String sport) {
+        String query = " SELECT * FROM sport_memes WHERE sport = ? OR ? IS NULL ORDER BY RANDOM() LIMIT 1";
+
+        if (checkConnection())
+            return null;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, sport);
+            stmt.setString(2, sport);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return new SportMeme(
+                    rs.getInt("id"),
+                    rs.getString("sport"),
+                    rs.getString("title"),
+                    rs.getString("image_url")
+                );
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore select meme: " + e.getMessage());
         }
         return null;
     }

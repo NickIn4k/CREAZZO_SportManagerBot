@@ -939,15 +939,21 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     private void basketPlayers(BallDontLieApi api, long chatId) {
+        WikiSportService wikiService = new WikiSportService();
         PlayersResponse resp = api.getPlayers(1);
+
         if (resp == null || resp.data == null || resp.data.isEmpty()) {
             send("😕 Nessun giocatore trovato", chatId, false);
             return;
         }
 
-        send("👤 Lista giocatori (prima pagina):\n\n",chatId, false);
-        for (Player p : resp.data) {
-            send(p.toString(), chatId, false);
+        send("👤 <b>Lista giocatori (prima pagina):</b>\n\n",chatId, true);
+        for (var player : resp.data) {
+            if (player.first_name != null && player.last_name != null) {
+                String playerName = player.first_name.concat(" ").concat(player.last_name);
+                String wikiTitle = wikiService.toWikiCamelCase(playerName);
+                wikiResponse(wikiService, playerName, wikiTitle, chatId);
+            }
         }
     }
 
@@ -980,6 +986,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
         wikiResponse(wikiService, player.toString(), wikiTitle, chatId);
     }
+
     private void basketTeams(BallDontLieApi api, long chatId) {
         TeamsResponse resp = api.getTeams();
         WikiSportService wikiService = new WikiSportService();
@@ -1984,7 +1991,6 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             if(!db.addApiRequest(user.id, sport, entity, endpoint))
                 System.err.println("Salvataggio nel db non avvenuto..");    // Messaggio che non interessa all'utente => non intacca il funzionamento base
         }
-
     }
     //#endregion
 }

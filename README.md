@@ -16,7 +16,6 @@ SportManagerBot nasce con l’obiettivo di permettere all’utente di:
 - 🏋️ Gestire i propri **allenamenti in palestra** tramite database
 - 🎉 Usufruire di funzionalità extra come:
     - meme sportivi
-    - mini-giochi
     - statistiche personalizzate
 
 Il tutto senza uscire da Telegram.
@@ -209,7 +208,6 @@ Il database gestisce:
 - giorni di allenamento
 - esercizi definiti liberamente dall’utente
 - sessioni di allenamento (log)
-- preferenze sportive
 - richieste API
 
 ### ``users``
@@ -252,13 +250,6 @@ Registra le esecuzioni reali degli allenamenti, consentendo la generazione di st
 - execution_date
 - completed
 
-### ``favorites``
-Gestisce le preferenze sportive degli utenti (sport, team, atleti).
-- id
-- user_id
-- category (es. F1, NBA, Calcio)
-- value (es. Ferrari, Lakers)
-
 ### ``api_requests``
 Registra le richieste effettuate alle API REST per analizzare le preferenze degli utenti e generare statistiche globali.
 - id
@@ -267,6 +258,14 @@ Registra le richieste effettuate alle API REST per analizzare le preferenze degl
 - entity
 - endpoint
 - requested_at
+- 
+### ``memes``
+Contiene meme caricati manualmente per un accesso randomico su richiesta.
+- id
+- sport
+- title
+- img_url
+- created_at
 
 ### Struttura e relazioni:
 ```
@@ -275,6 +274,7 @@ users
  │    └── training_days 
  │         ├── user_exercises 
  │         └── workout_sessions 
- ├── favorites
  └── api_requests
+ 
+ memes
 ```
