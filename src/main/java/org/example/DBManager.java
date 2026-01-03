@@ -280,6 +280,38 @@ public class DBManager {
         }
         return -1;
     }
+
+    public TrainingDay getTrainingDayById(int trainingDayId) {
+        String query = "SELECT * FROM training_days WHERE id = ?";
+
+        if (checkConnection())
+            return null;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, trainingDayId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (!rs.next())
+                return null;
+
+            TrainingDay day = new TrainingDay(
+                    rs.getInt("id"),
+                    rs.getInt("plan_id"),
+                    rs.getInt("day_of_week"),
+                    rs.getString("focus")
+            );
+
+            // opzionale: carica anche gli esercizi del giorno
+            List<UserExercise> exercises = getUserExercises(trainingDayId);
+            day.setExercises(exercises);
+
+            return day;
+
+        } catch (SQLException e) {
+            System.err.println("Errore getTrainingDayById: " + e.getMessage());
+            return null;
+        }
+    }
     //#endregion
 
     //#region user_exercises
@@ -365,8 +397,15 @@ public class DBManager {
         }
     }
 
-    public List<WorkoutSession> getWorkoutSessions(int trainingDayId) {
-        String query = " SELECT * FROM workout_sessions WHERE training_day_id = ? ORDER BY execution_date DESC";
+    public List<WorkoutSession> getWorkoutSessionsByActivePlan(int userId) {
+        String query = """
+        SELECT ws.*
+        FROM workout_sessions ws
+        JOIN training_days td ON ws.training_day_id = td.id
+        JOIN training_plans tp ON td.plan_id = tp.id
+        WHERE tp.user_id = ? AND tp.is_active = 1
+        ORDER BY ws.execution_date DESC
+        """;
 
         List<WorkoutSession> list = new ArrayList<>();
 
@@ -374,32 +413,39 @@ public class DBManager {
             return list;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, trainingDayId);
+            stmt.setInt(1, userId);
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
                 list.add(new WorkoutSession(
-                    rs.getInt("id"),
-                    rs.getInt("training_day_id"),
-                    rs.getTimestamp("execution_date").toLocalDateTime(),
-                    rs.getBoolean("completed")
+                        rs.getInt("id"),
+                        rs.getInt("training_day_id"),
+                        rs.getTimestamp("execution_date").toLocalDateTime(),
+                        rs.getBoolean("completed")
                 ));
             }
         } catch (SQLException e) {
-            System.err.println("Errore select workout_sessions: " + e.getMessage());
+            System.err.println("Errore select workout_sessions by active plan: " + e.getMessage());
         }
 
         return list;
     }
 
-    public WorkoutSession getLastWorkoutSession(int trainingDayId) {
-        String query = "SELECT * FROM workout_sessions WHERE training_day_id = ? ORDER BY execution_date DESC LIMIT 1 ";
+    public WorkoutSession getLastWorkoutSessionByUserActivePlan(int userId) {
+        String query = """
+            SELECT ws.* FROM workout_sessions ws
+            JOIN training_days td ON ws.training_day_id = td.id
+            JOIN training_plans tp ON td.plan_id = tp.id
+            WHERE tp.user_id = ? AND tp.is_active = 1
+            ORDER BY ws.execution_date DESC
+            LIMIT 1
+        """;
 
         if (checkConnection())
             return null;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, trainingDayId);
+            stmt.setInt(1, userId);
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
@@ -410,28 +456,33 @@ public class DBManager {
                     rs.getBoolean("completed")
                 );
             }
+
         } catch (SQLException e) {
-            System.err.println("Errore select last workout_session: " + e.getMessage());
+            System.err.println("Errore getLastWorkoutSessionByPlan: " + e.getMessage());
         }
 
         return null;
     }
 
-    public int countWorkoutsByPlan(int planId) {
-        String query = " SELECT COUNT(ws.id) FROM workout_sessions ws JOIN training_days td ON ws.training_day_id = td.id WHERE td.plan_id = ?";
+    public int countCompletedWorkoutsByActivePlan(int userId) {
+        String query = """
+            SELECT COUNT(ws.id) FROM workout_sessions ws
+            JOIN training_days td ON ws.training_day_id = td.id
+            JOIN training_plans tp ON td.plan_id = tp.id
+            WHERE tp.user_id = ? AND tp.is_active = 1 AND ws.completed = 1
+        """;
 
         if (checkConnection())
             return 0;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, planId);
+            stmt.setInt(1, userId);
             ResultSet rs = stmt.executeQuery();
-
             if (rs.next())
                 return rs.getInt(1);
 
         } catch (SQLException e) {
-            System.err.println("Errore count workout_sessions: " + e.getMessage());
+            System.err.println("Errore countCompletedWorkoutsByActivePlan: " + e.getMessage());
         }
 
         return 0;
@@ -515,31 +566,113 @@ public class DBManager {
         }
     }
 
-    public List<ApiRequest> getApiRequestsByUser(int userId) {
-        String query = "SELECT * FROM api_requests WHERE user_id = ?";
-        List<ApiRequest> requests = new ArrayList<>();
+    public ApiRequest getLastApiRequestByUser(int userId) {
+        String query = "SELECT * FROM api_requests WHERE user_id = ? ORDER BY requested_at DESC LIMIT 1";
 
         if (checkConnection())
-            return requests;
+            return null;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setInt(1, userId);
             ResultSet rs = stmt.executeQuery();
 
-            while (rs.next()) {
-                requests.add(new ApiRequest(
+            if (rs.next()) {
+                return new ApiRequest(
                     rs.getInt("id"),
                     rs.getInt("user_id"),
                     rs.getString("sport"),
                     rs.getString("entity"),
                     rs.getString("endpoint"),
                     rs.getString("requested_at")
-                ));
+                );
             }
         } catch (SQLException e) {
-            System.err.println("Errore select api_requests: " + e.getMessage());
+            System.err.println("Errore last api request: " + e.getMessage());
         }
-        return requests;
+        return null;
+    }
+
+    public ApiTopStat getTopApiByUser(int userId) {
+        String query = """
+        SELECT sport, entity, endpoint, COUNT(*) as total
+        FROM api_requests
+        WHERE user_id = ?
+        GROUP BY sport, entity, endpoint
+        ORDER BY total DESC
+        LIMIT 1
+        """;
+
+        if (checkConnection())
+            return null;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return new ApiTopStat(
+                    rs.getString("sport"),
+                    rs.getString("entity"),
+                    rs.getString("endpoint"),
+                    rs.getInt("total")
+                );
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore top api: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public ApiSummary getApiSummaryByUser(int userId) {
+        String totalQuery = "SELECT COUNT(*) FROM api_requests WHERE user_id = ?";
+
+        String sportQuery = """
+        SELECT sport FROM api_requests
+        WHERE user_id = ?
+        GROUP BY sport
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+        """;
+
+        String entityQuery = """
+        SELECT entity FROM api_requests
+        WHERE user_id = ?
+        GROUP BY entity
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+        """;
+
+        if (checkConnection())
+            return null;
+
+        try {
+            int total = 0;
+            String sport = "N/A";
+            String entity = "N/A";
+
+            try (PreparedStatement stmt = connection.prepareStatement(totalQuery)) {
+                stmt.setInt(1, userId);
+                ResultSet rs = stmt.executeQuery();
+                if (rs.next()) total = rs.getInt(1);
+            }
+
+            try (PreparedStatement stmt = connection.prepareStatement(sportQuery)) {
+                stmt.setInt(1, userId);
+                ResultSet rs = stmt.executeQuery();
+                if (rs.next()) sport = rs.getString(1);
+            }
+
+            try (PreparedStatement stmt = connection.prepareStatement(entityQuery)) {
+                stmt.setInt(1, userId);
+                ResultSet rs = stmt.executeQuery();
+                if (rs.next()) entity = rs.getString(1);
+            }
+
+            return new ApiSummary(total, sport, entity);
+        } catch (SQLException e) {
+            System.err.println("Errore api summary: " + e.getMessage());
+        }
+        return null;
     }
     //#endregion
 

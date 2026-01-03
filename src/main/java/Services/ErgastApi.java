@@ -40,6 +40,12 @@ public class ErgastApi {
     public MRData getDriverStandings() {
         String json = getString("/current/driverStandings");
         ErgastResponse resp = gson.fromJson(json, ErgastResponse.class);
+
+        if(resp.MRData == null || resp.MRData.StandingsTable == null || resp.MRData.StandingsTable.round == null){
+            int lastYear = java.time.Year.now().getValue() - 1;
+            json = getString("/" + lastYear + "/driverStandings");
+            resp = gson.fromJson(json, ErgastResponse.class);
+        }
         return resp.MRData;
     }
 
@@ -47,6 +53,12 @@ public class ErgastApi {
     public MRData getConstructorStandings() {
         String json = getString("/current/constructorStandings");
         ErgastResponse resp = gson.fromJson(json, ErgastResponse.class);
+
+        if(resp.MRData == null || resp.MRData.StandingsTable == null || resp.MRData.StandingsTable.round == null){
+            int lastYear = java.time.Year.now().getValue() - 1;
+            json = getString("/" + lastYear + "/constructorStandings");
+            resp = gson.fromJson(json, ErgastResponse.class);
+        }
         return resp.MRData;
     }
 
@@ -84,6 +96,12 @@ public class ErgastApi {
     public MRData getLastRaceResults() {
         String json = getString("/current/last/results");
         ErgastResponse resp = gson.fromJson(json, ErgastResponse.class);
+
+        if(resp.MRData == null || resp.MRData.RaceTable == null || resp.MRData.RaceTable.Races.isEmpty()){
+            int lastYear = java.time.Year.now().getValue() - 1;
+            json = getString("/" + lastYear + "/last/results");
+            resp = gson.fromJson(json, ErgastResponse.class);
+        }
         return resp.MRData;
     }
 }

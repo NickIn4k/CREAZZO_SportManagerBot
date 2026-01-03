@@ -25,10 +25,16 @@ public class WorkoutSession {
 
     @Override
     public String toString() {
-        return "🕒 Sessione #%d\nData: %s\nStato: %s"
-                .formatted(
+        String[] parts = executionDate.toString().split("T");
+        return """
+                🔨 Sessione <b>%d</b>
+                📅 Giorno: %s
+                🕐 Ora: %s
+                📒 Stato: %s
+                """.formatted(
                     id,
-                    executionDate,
+                    parts[0],
+                    parts[1],
                     completed ? "✅ Completata" : "⏳ In corso"
                 );
     }

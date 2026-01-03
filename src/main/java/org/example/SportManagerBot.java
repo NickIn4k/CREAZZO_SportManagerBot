@@ -49,7 +49,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         waiting_training,
         waiting_training_day,
         waiting_exercise,
-        waiting_workout
+        waiting_workout,
+        waiting_stats
     }
 
     // Le leghe del calcio hanno degli id specifici
@@ -129,6 +130,10 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             case waiting_workout:
                 userStates.put(chatId, BotState.none);
                 handleWorkoutCommand(args, chatId);
+                return;
+            case waiting_stats:
+                userStates.put(chatId, BotState.none);
+                handleStatsCommand(args, chatId);
                 return;
         }
 
@@ -285,6 +290,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     🗑️ <b>remove &lt;id&gt;</b> – Rimuovi una scheda
                     📋 <b>list &lt;id&gt; days</b> – Elenco allenamenti
                     📋 <b>list &lt;id&gt; exercises </b> – Elenco esercizi
+                    
+                    ℹ️ Maggiori info con il comando <b>/help</b>
                     """;
                     send(msg, chatId, true);
                 } else {
@@ -292,7 +299,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     handleTrainingCommand(trainingArgs, chatId);
                 }
                 break;
-            case "/trainingDay":
+            case "/trainingday":
                 if (args.length == 1) {
                     userStates.put(chatId, BotState.waiting_training_day);
                     String msg = """
@@ -303,6 +310,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     ➕ <b>add &lt;idScheda&gt; &lt;giorno&gt; &lt;focus&gt;</b> - Aggiungi allenamento
                     ❌ <b>remove &lt;idGiorno&gt;</b> - Elimina allenamento
                     📋 <b>list &lt;idScheda&gt;</b> - Elenco allenamenti
+                    
+                    ℹ️ Maggiori info con il comando <b>/help</b>
                     """;
                     send(msg, chatId, true);
                 } else {
@@ -321,6 +330,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     ➕ <b>add &lt;id giorno&gt; &lt;nome&gt; # &lt;sets&gt; &lt;reps&gt; &lt;peso&gt; # [note]</b> - Aggiungi esercizio
                     ❌ <b>remove &lt;id esercizio&gt;</b> - Elimina esercizio
                     📋 <b>list &lt;id scheda&gt;</b> - Elenco esercizi
+                    
+                    ℹ️ Maggiori info con il comando <b>/help</b>
                     """;
                     send(msg, chatId, true);
                 } else {
@@ -338,12 +349,36 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     
                     ▶️ <b>start &lt;id giorno&gt;</b> – Inizia una sessione di allenamento
                     ✅ <b>complete &lt;id sessione&gt;</b> – Completa una sessione
-                    📊 <b>list &lt;id giorno&gt;</b> – Elenco sessioni registrate
+                    📊 <b>list</b> – Elenco sessioni registrate
+                    
+                    ℹ️ Maggiori info con il comando <b>/help</b>
                     """;
                     send(msg, chatId, true);
                 } else {
                     String[] workoutArgs = Arrays.copyOfRange(args, 1, args.length);
                     handleWorkoutCommand(workoutArgs, chatId);
+                }
+                break;
+            case "/stats":
+                if (args.length == 1) {
+                    userStates.put(chatId, BotState.waiting_stats);
+                    String msg = """
+                    📊 <b>Statistiche utente</b>
+                    
+                    Comandi disponibili:
+                    
+                    ▶️ <b>workout done</b> – Mostra il totale delle sessioni completate
+                    🕒 <b>workout last</b> – Mostra l'ultima sessione completata
+                    🏅 <b>api top</b> - Mostra l'API più utilizzata
+                    📚 <b>api last</b> - Mostra l'ultima API usata
+                    🗂️ <b>api summary</b> - Riassume le chiamate API
+                    
+                    ℹ️ Maggiori info con il comando <b>/help</b>
+                    """;
+                    send(msg, chatId, true);
+                } else {
+                    String[] statsArgs = Arrays.copyOfRange(args, 1, args.length);
+                    handleStatsCommand(statsArgs, chatId);
                 }
                 break;
             default:
@@ -423,9 +458,9 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /training list &lt;id&gt; days – Elenco giorni di allenamento della scheda
         /training list &lt;id&gt; exercises – Elenco esercizi della scheda
         
-        /trainingDay add &lt;id scheda&gt; &lt;nome giorno&gt; – Aggiungi un giorno alla scheda
-        /trainingDay remove &lt;id giorno&gt; – Rimuovi un giorno dalla scheda
-        /trainingDay list &lt;id scheda&gt; – Elenco giorni di allenamento della scheda
+        /trainingday add &lt;id scheda&gt; &lt;nome giorno&gt; – Aggiungi un giorno alla scheda
+        /trainingday remove &lt;id giorno&gt; – Rimuovi un giorno dalla scheda
+        /trainingday list &lt;id scheda&gt; – Elenco giorni di allenamento della scheda
         
         /exercise add &lt;id giorno&gt; &lt;nome esercizio&gt; # &lt;sets&gt; &lt;reps&gt; &lt;peso&gt; # [note] – Aggiungi un esercizio
         /exercise remove &lt;id esercizio&gt; – Rimuovi un esercizio
@@ -433,7 +468,14 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         
         /workout start &lt;id giorno&gt; – Inizia sessione di allenamento
         /workout complete &lt;id sessione&gt; – Completa sessione di allenamento
-        /workout list &lt;id giorno&gt; – Elenco sessioni di allenamento registrate
+        /workout list – Elenco sessioni di allenamento registrate
+        
+        📊 <b>Statistiche</b>
+        /stats workout done – Conteggio totale delle sessioni completate
+        /stats workout last – Mostra l'ultima sessione completata
+        /stats api top - Mostra l'API più utilizzata
+        /stats api last - Mostra l'ultima API usata
+        /stats api summary - Riassume le chiamate API
         
         ⚠️ Sport supportati: F1, Motorsport, WEC, Calcio, Basketball
         """;
@@ -512,40 +554,53 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         switch (args[0].toLowerCase()) {
             case "next":
                 f1Next(ergastApi, chatId);
+                trackApi(chatId, "F1", "race", "next");
                 break;
             case "last":
                 if(args.length >= 2 && args[1].equalsIgnoreCase("results")){
                     f1LastResults(ergastApi, chatId);
+                    trackApi(chatId, "F1", "race", "last_results");
                     break;
                 }
                 f1Last(ergastApi, chatId);
+                trackApi(chatId, "F1", "race", "last");
                 break;
             case "drivers":
                 MRData drivers = ergastApi.getDriverStandings();
                 send(drivers.StandingsTable.toString(), chatId, true);
+                trackApi(chatId, "F1", "driver", "standings");
                 break;
             case "constructors":
                 MRData constructors = ergastApi.getConstructorStandings();
                 send(constructors.StandingsTable.toString(), chatId, true);
+                trackApi(chatId, "F1", "constructor", "standings");
                 break;
             case "calendar":
-                if(args.length >= 2)
+                if(args.length >= 2){
                     f1Calendar(ergastApi,chatId,args[1]);
+                    trackApi(chatId, "F1", "race", "calendar");                }
                 else
                     send("❌ Devi specificare un anno", chatId, false);
                 break;
             case "driver":
-                if (args.length >= 2)
+                if (args.length >= 2){
                     f1Driver(ergastApi,chatId,args[1]);
+                    trackApi(chatId, "F1", "driver", "details");
+                }
                 else
                     send("❌ Devi specificare un pilota", chatId, false);
                 break;
             case "teams":
                 f1Teams(ergastApi, chatId);
+                trackApi(chatId, "F1", "constructor", "list");
                 break;
             case "team":
-                String name = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-                f1SpecificTeam(ergastApi, chatId, name);
+                if (args.length >= 2) {
+                    String name = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+                    f1SpecificTeam(ergastApi, chatId, name);
+                    trackApi(chatId, "F1", "constructor", "details");
+                } else
+                    send("❌ Devi specificare un team", chatId, false);
                 break;
             default:
                 send("❌ Comando F1 non riconosciuto", chatId, false);
@@ -555,8 +610,9 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     // Prossima gara
     private void f1Next(ErgastApi ergastApi, long chatId) {
         MRData nextRaceData = ergastApi.getNextRace();
-        if (nextRaceData != null && nextRaceData.RaceTable != null && !nextRaceData.RaceTable.Races.isEmpty())
+        if (nextRaceData != null && nextRaceData.RaceTable != null && !nextRaceData.RaceTable.Races.isEmpty()){
             send(nextRaceData.RaceTable.Races.getFirst().toString(), chatId, true);
+        }
         else
             send("😕 Nessuna prossima gara trovata", chatId, false);
     }
@@ -742,13 +798,17 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         switch(args[0].toLowerCase()) {
             case "next":
                 wecNext(wecApi, chatId);
+                trackApi(chatId, "WEC", "race", "next");
                 break;
             case "last":
                 wecLast(wecApi, chatId);
+                trackApi(chatId, "WEC", "race", "last");
                 break;
             case "seasons":
-                if(args.length >= 2)
+                if(args.length >= 2) {
                     wecSeason(wecApi, chatId, args[1]);
+                    trackApi(chatId, "WEC", "season", "list");
+                }
                 else
                     send("❌ Devi specificare una stagione", chatId, false);
                 break;
@@ -756,6 +816,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 if(args.length >= 2){
                     String name = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
                     wecSpecificTeam(chatId, name);
+                    trackApi(chatId, "WEC", "car", "details");
                 }
                 else
                     send("❌ Devi specificare Team e modello!", chatId, false);
@@ -828,16 +889,19 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         switch (args[0].toLowerCase()) {
             case "players":
                 basketPlayers(basketApi, chatId);
+                trackApi(chatId, "NBA", "player", "list");
                 break;
             case "player":
                 if (args.length >= 2) {
                     String playerName = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
                     basketPlayerSearch(basketApi, chatId, playerName);
+                    trackApi(chatId, "NBA", "player", "search");
                 } else
                     send("❌ Devi specificare un nome", chatId, false);
                 break;
             case "teams":
                 basketTeams(basketApi, chatId);
+                trackApi(chatId, "NBA", "team", "list");
                 break;
             case "games":
                 if (args.length >= 2) {
@@ -845,14 +909,15 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                         if (args[1].equalsIgnoreCase("season") && args.length >= 3) {
                             int season = Integer.parseInt(args[2]);
                             basketGamesSeason(basketApi, chatId, season);
+                            trackApi(chatId, "NBA", "games", "season");
                         }
                         else if (args[1].equalsIgnoreCase("team") && args.length >= 4) {
                             int teamId = Integer.parseInt(args[2]);
                             int season = Integer.parseInt(args[3]);
                             basketGamesByTeam(basketApi, chatId, teamId, season);
-                        } else {
+                            trackApi(chatId, "NBA", "games", "team");
+                        } else
                             send("❌ Comando partite non valido. Usa: games season <anno> o games team <id> <anno>", chatId, false);
-                        }
                     } catch (NumberFormatException e) {
                         send("❌ Parametro numerico non valido", chatId, false);
                     }
@@ -863,6 +928,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 if(args.length >= 2){
                     String name = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
                     basketSpecificTeam(chatId, name);
+                    trackApi(chatId, "NBA", "team", "details");
                 }
                 else
                     send("❌ Devi specificare Team e modello!", chatId, false);
@@ -1021,54 +1087,42 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         switch (cmd) {
             case "teams":
                 if (commandArgs.length >= 2) {
-                    try {
-                        int year = Integer.parseInt(commandArgs[1]);
-                        sendTeams(api, leagueId, year, chatId);
-                    } catch (NumberFormatException e) {
-                        send("❌ Anno non valido", chatId, false);
-                    }
+                    int year = safeParseInt(commandArgs[1], chatId, "❌ Anno non valido");
+                    sendTeams(api, leagueId, year, chatId);
+                    trackApi(chatId, "SOCCER", "team", "list");
                 } else
                     send("❌ Devi specificare l'anno per la lista squadre", chatId, false);
                 break;
             case "players":
-                if (commandArgs.length >= 2) {
-                    try {
-                        int teamId = Integer.parseInt(commandArgs[1]);
-                        int year = Integer.parseInt(commandArgs[2]);
-                        sendPlayers(api, teamId, year, chatId);
-                    } catch (NumberFormatException e) {
-                        send("❌ Team ID non valido", chatId, false);
-                    }
+                if (commandArgs.length >= 3) {
+                    int teamId = safeParseInt(commandArgs[1], chatId,"❌ ID non valido" );
+                    int year = safeParseInt(commandArgs[2], chatId, "❌ Anno non valido");
+                    sendPlayers(api, teamId, year, chatId);
+                    trackApi(chatId, "SOCCER", "player", "team");
                 } else
-                    send("❌ Devi specificare il teamId", chatId, false);
+                    send("❌ Devi specificare il teamId e l'anno", chatId, false);
                 break;
             case "player":
                 if (commandArgs.length >= 2) {
                     try {
                         int playerId = Integer.parseInt(commandArgs[1]);
-                        if (commandArgs.length >= 3) {
-                            int season = Integer.parseInt(commandArgs[2]);
-                            sendPlayer(api, playerId, season, chatId);
-                            break;
-                        }
+                        int season = commandArgs.length >= 3 ? Integer.parseInt(commandArgs[2]) : 2023;
 
-                        // Altrimenti i parametri sono il nome!
-                        String playerName = String.join(" ", Arrays.copyOfRange(commandArgs, 1, commandArgs.length));
-                        soccerSpecificPlayer(chatId, playerName.trim());
+                        sendPlayer(api, playerId, season, chatId);
+                        trackApi(chatId, "SOCCER", "player", "id");
                     } catch (NumberFormatException e) {
-                        // Non un numero => tutto l'input è il nome!
                         String playerName = String.join(" ", Arrays.copyOfRange(commandArgs, 1, commandArgs.length));
                         soccerSpecificPlayer(chatId, playerName.trim());
+                        trackApi(chatId, "SOCCER", "player", "search");
                     }
                 } else
-                    send("❌ Devi specificare almeno il playerId o il nome del giocatore", chatId, false);
+                    send("❌ Devi specificare un giocatore", chatId, false);
                 break;
             case "team":
                 String teamName = String.join(" ", Arrays.copyOfRange(commandArgs, 1, commandArgs.length));
                 soccerSpecificTeam(chatId, teamName.trim());
+                trackApi(chatId, "SOCCER", "team", "search");
                 break;
-            case "next":
-            case "last":
             case "season":
             case "standings":
                 handleSeasonCommands(api, cmd, commandArgs, leagueId, chatId);
@@ -1178,6 +1232,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                         message = "";
                     }
                 }
+                trackApi(chatId, "SOCCER", "season", cmd);
                 break;
             case "standings":
                 StandingsResponse standings = api.getStandings(leagueId, season);
@@ -1189,13 +1244,13 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
                 League lg = standings.response.getFirst().league;
                 send(lg.toString(), chatId, true);
-            break;
+                trackApi(chatId, "SOCCER", "season", cmd);
+                break;
             default:
                 send("❌ Comando stagione non riconosciuto", chatId, false);
                 break;
         }
     }
-
     //#endregion
 
     //#region Training DB
@@ -1354,7 +1409,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     //#region Training day
     private void handleTrainingDayCommand(String[] args, long chatId) {
         if (args.length == 0) {
-            send("❌ Devi specificare un comando trainingDay", chatId, false);
+            send("❌ Devi specificare un comando trainingday", chatId, false);
             return;
         }
 
@@ -1362,7 +1417,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         switch (args[0].toLowerCase()) {
             case "add":
                 if (args.length < 4) {
-                    send("⚠️ Usa: /trainingDay add <idScheda> <giorno> <focus>", chatId, false);
+                    send("⚠️ Usa: /trainingday add <idScheda> <giorno> <focus>", chatId, false);
                     return;
                 }
                 int planId;
@@ -1383,21 +1438,21 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 break;
             case "remove":
                 if (args.length < 2) {
-                    send("⚠️ Usa: /trainingDay remove <idGiorno>", chatId, false);
+                    send("⚠️ Usa: /trainingday remove <idGiorno>", chatId, false);
                     return;
                 }
                 removeTrainingDay(db, chatId, args[1]);
                 break;
             case "list":
                 if (args.length < 2) {
-                    send("⚠️ Usa: /trainingDay list <idScheda>", chatId, false);
+                    send("⚠️ Usa: /trainingday list <idScheda>", chatId, false);
                     return;
                 }
                 int id = safeParseInt(args[1], chatId, "⚠️ ID allenamento non valido.");
                 listTrainingDays(db, chatId, id);
                 break;
             default:
-                send("❌ Comando trainingDay non valido", chatId, false);
+                send("❌ Comando trainingday non valido", chatId, false);
         }
     }
 
@@ -1507,6 +1562,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     private void listDayExercises(DBManager db, long chatId, int dayId) {
+
         List<UserExercise> exercises = db.getUserExercises(dayId);
 
         if (exercises.isEmpty()) {
@@ -1547,11 +1603,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 completeWorkoutSession(db, chatId, args[1]);
                 break;
             case "list":
-                if (args.length < 2) {
-                    send("❌ Manca l'id del giorno.", chatId, false);
-                    return;
-                }
-                listWorkoutSession(db, chatId, args[1]);
+                listWorkoutSession(db, chatId);
                 break;
             default:
                 send("❌ Comando workout non valido.", chatId, false);
@@ -1597,12 +1649,9 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             send("❌ Sessione non trovata.", chatId, false);
     }
 
-    private void listWorkoutSession(DBManager db, long chatId, String dayIdStr) {
-        int id = safeParseInt(dayIdStr, chatId, "⚠️ ID giorno non valido.");
-        if(id == -1)
-            return;
-
-        var sessions = db.getWorkoutSessions(id);
+    private void listWorkoutSession(DBManager db, long chatId) {
+        User user = db.getUserByTelegramId(chatId);
+        var sessions = db.getWorkoutSessionsByActivePlan(user.id);
 
         if (sessions.isEmpty()) {
             send("🧐 Nessuna sessione registrata.", chatId, false);
@@ -1614,6 +1663,162 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             msg = msg.concat(session.toString()).concat("\n\n");
 
         send(msg, chatId, true);
+    }
+    //#endregion
+
+    //#region stats
+    private void handleStatsCommand(String[] args, long chatId) {
+        if (args.length < 1) {
+            send("❌ Usa: /stats <categoria> [tipo]", chatId, false);
+            return;
+        }
+
+        DBManager db = DBManager.getInstance();
+        User user = db.getUserByTelegramId(chatId);
+
+        switch (args[0].toLowerCase()) {
+            case "workout":
+                if (args.length < 2) {
+                    send("❌ Specifica il tipo: <done|last>\nEsempi: /stats workout done, /stats workout last", chatId, false);
+                    return;
+                }
+                if (args[1].equalsIgnoreCase("done")) {
+                    statsWorkoutDone(db, chatId, user.id);
+                } else if (args[1].equalsIgnoreCase("last"))
+                    statsLastWorkout(db, chatId, user.id);
+                else
+                    send("❌ Tipo non valido per /stats workout. Usa <done|last>", chatId, false);
+                break;
+            case "favorites":
+                // in futuro: mostra le statistiche sui preferiti
+                send("ℹ️ Comando /stats favorites in sviluppo", chatId, false);
+                break;
+            case "api":
+                if (args.length < 2) {
+                    send("❌ Specifica il tipo: <top|last|summary>\nEsempi: /stats api top, /stats api last, /stats api summary", chatId, false);
+                    return;
+                }
+                handleStatsApi(args[1], user.id, chatId);
+                break;
+            default:
+                send("❌ Categoria non valida. Usa <workout|favorites|mostused>", chatId, false);
+        }
+    }
+
+    private void statsLastWorkout(DBManager db, long chatId, int id){
+        WorkoutSession lastSession = db.getLastWorkoutSessionByUserActivePlan(id);
+        if (lastSession == null) {
+            send("❌ Non hai ancora registrato sessioni di allenamento.", chatId, false);
+        } else {
+            TrainingDay day = db.getTrainingDayById(lastSession.trainingDayId);
+            String[] parts = lastSession.executionDate.toString().split("T");
+            send("""
+                🕒  <b>Ultimo allenamento</b>
+                ━━━━━━━━━━━━━━━━━━
+                📅  <b>Giorno:</b> %s
+                
+                🕐  <b>Ora:</b> %s
+                
+                🎯  <b>Focus:</b> %s
+                
+                Ottimo lavoro! 💪
+                ━━━━━━━━━━━━━━━━━━
+                """.formatted(
+                    parts[0],
+                    parts[1],
+                    day.focus
+            ), chatId, true);
+        }
+    }
+
+    private void statsWorkoutDone(DBManager db, long chatId, int userId){
+        int total = db.countCompletedWorkoutsByActivePlan(userId);
+        send("""
+            📊 <b>Statistiche allenamenti</b>
+            ━━━━━━━━━━━━━━━━━━
+            ✅ <b>Sessioni completate</b>
+            
+            🔥 Totale: <b>%d</b>
+            
+            %s
+            ━━━━━━━━━━━━━━━━━━
+            """.formatted(
+                total,
+                total > 0 ? "Continua così! 💪" : "È ora di iniziare!"
+        ), chatId, true);
+    }
+
+    private void handleStatsApi(String type, int userId, long chatId) {
+        DBManager db = DBManager.getInstance();
+
+        switch (type.toLowerCase()) {
+            case "top":
+                topApiStat(db, userId, chatId);
+                break;
+            case "last":
+                lastApiStat(db, userId, chatId);
+                break;
+            case "summary":
+                summaryApiStat(db, userId, chatId);
+                break;
+            default:
+                send("❌ Tipo non valido per /stats api. Usa <top|last|summary>", chatId, false);
+        }
+    }
+
+    private void topApiStat(DBManager db, int userId, long chatId) {
+        ApiTopStat top = db.getTopApiByUser(userId);
+        if (top == null) {
+            send("❌ Nessuna chiamata API registrata.", chatId, false);
+            return;
+        }
+        send("""
+            📊 <b>API più utilizzata</b>
+            ━━━━━━━━━━━━━━━━━━
+            🔺 Sport: <b>%s</b>
+            🔺 Entity: <b>%s</b>
+            🔺 Endpoint: <b>%s</b>
+            🔺 Chiamate: <b>%d</b>
+            ━━━━━━━━━━━━━━━━━━
+            """.formatted(top.sport, top.entity, top.endpoint, top.total),
+        chatId, true);
+    }
+
+    private void lastApiStat(DBManager db, int userId, long chatId) {
+        ApiRequest last = db.getLastApiRequestByUser(userId);
+        if (last == null) {
+            send("❌ Nessuna chiamata API registrata.", chatId, false);
+            return;
+        }
+
+        send("""
+            📊 <b>Ultima API usata</b>
+            ━━━━━━━━━━━━━━━━━━
+            🔺 Sport: <b>%s</b>
+            🔺 Endpoint: <b>%s</b>
+            🔺 Entity: <b>%s</b>
+            🔺 Richiesta: <b>%s</b>
+            ━━━━━━━━━━━━━━━━━━
+            """.formatted(last.sport, last.endpoint, last.entity, last.requestedAt),
+        chatId, true);
+    }
+
+    private void summaryApiStat(DBManager db, int userId, long chatId) {
+        ApiSummary summary = db.getApiSummaryByUser(userId);
+        if (summary == null || summary.totalRequests == 0) {
+            send("❌ Nessuna chiamata API registrata.", chatId, false);
+            return;
+        }
+
+        send("""
+            📊 <b>Riassunto chiamate API</b>
+            ━━━━━━━━━━━━━━━━━━
+            🔺 Totale chiamate: <b>%d</b>
+            🔺 Sport più usato: <b>%s</b>
+            🔺 Entity più usata: <b>%s</b>
+            ━━━━━━━━━━━━━━━━━━
+            """.formatted(summary.totalRequests, summary.topSport, summary.topEntity),
+        chatId, true);
     }
     //#endregion
 
@@ -1769,6 +1974,17 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             send(errorMessage, chatId, false);
             return -1;
         }
+    }
+
+    private void trackApi(long chatId, String sport, String entity, String endpoint) {
+        DBManager db = DBManager.getInstance();
+        User user = db.getUserByTelegramId(chatId);
+
+        if (user != null){
+            if(!db.addApiRequest(user.id, sport, entity, endpoint))
+                System.err.println("Salvataggio nel db non avvenuto..");    // Messaggio che non interessa all'utente => non intacca il funzionamento base
+        }
+
     }
     //#endregion
 }
