@@ -637,27 +637,46 @@ public class DBManager {
     //#endregion
 
     //#region sport_meme
-    public SportMeme getRandomMeme(String sport) {
-        String query = " SELECT * FROM sport_memes WHERE sport = ? OR ? IS NULL ORDER BY RANDOM() LIMIT 1";
+    public SportMeme getRandomMemeBySport(String sport) {
+        String query = "SELECT * FROM sport_memes WHERE category = ? ORDER BY RANDOM() LIMIT 1";
 
         if (checkConnection())
             return null;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, sport);
-            stmt.setString(2, sport);
 
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
                 return new SportMeme(
-                    rs.getInt("id"),
-                    rs.getString("sport"),
-                    rs.getString("title"),
-                    rs.getString("image_url")
+                        rs.getInt("id"),
+                        rs.getString("category"),
+                        rs.getString("image_url")
                 );
             }
         } catch (SQLException e) {
-            System.err.println("Errore select meme: " + e.getMessage());
+            System.err.println("Errore select meme by sport: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public SportMeme getRandomMeme() {
+        String query = "SELECT * FROM sport_memes ORDER BY RANDOM() LIMIT 1";
+
+        if (checkConnection())
+            return null;
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return new SportMeme(
+                        rs.getInt("id"),
+                        rs.getString("category"),
+                        rs.getString("image_url")
+                );
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore select meme random: " + e.getMessage());
         }
         return null;
     }

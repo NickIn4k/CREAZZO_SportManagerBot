@@ -50,7 +50,8 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         waiting_training_day,
         waiting_exercise,
         waiting_workout,
-        waiting_stats
+        waiting_stats,
+        waiting_meme
     }
 
     // Le leghe del calcio hanno degli id specifici
@@ -134,6 +135,10 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
             case waiting_stats:
                 userStates.put(chatId, BotState.none);
                 handleStatsCommand(args, chatId);
+                return;
+            case waiting_meme:
+                userStates.put(chatId, BotState.none);
+                handleMemeCommand(args, chatId);
                 return;
         }
 
@@ -381,6 +386,28 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     handleStatsCommand(statsArgs, chatId);
                 }
                 break;
+            case "/meme":
+                if (args.length == 1) {
+                    userStates.put(chatId, BotState.waiting_meme);
+                    String msg = """
+                    😂 <b>Meme sportivi</b>
+                    
+                    Comandi disponibili:
+                    
+                    🏎️ <b>f1</b> – Meme Formula 1
+                    🏁 <b>wec</b> – Meme WEC
+                    🏀 <b>nba</b> – Meme NBA
+                    ⚽ <b>soccer</b> – Meme Calcio
+                    🎲 <b>random</b> – Meme casuale
+                    
+                    ℹ️ Maggiori info con il comando <b>/help</b>
+                    """;
+                    send(msg, chatId, true);
+                } else {
+                    String[] memeArgs = Arrays.copyOfRange(args, 1, args.length);
+                    handleMemeCommand(memeArgs, chatId);
+                }
+                break;
             default:
                 send("❓ Comando non riconosciuto. Usa /help", chatId, false);
         }
@@ -449,6 +476,13 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         /soccer &lt;lega&gt; season &lt;anno&gt; – Partite della stagione
         /soccer &lt;lega&gt; standings – Classifica aggiornata
         /soccer &lt;lega&gt; team &lt;nome&gt – Info team
+        
+        😂 <b>Meme sportivi</b>
+        🏎️ /meme f1 – Meme Formula 1
+        🏁 /meme wec – Meme WEC
+        🏀 /meme nba – Meme NBA
+        ⚽ /meme soccer – Meme Calcio
+        🎲 /meme random – Meme casuale
         
         🏋️ <b>Personal Trainer</b>
         /training new &lt;nome&gt; – Crea nuova scheda
@@ -1828,6 +1862,41 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         chatId, true);
     }
     //#endregion
+
+    //#region meme
+    private void handleMemeCommand(String[] args, long chatId) {
+        if (args.length == 0) {
+            send("❌ Specifica una categoria meme. Usa /meme", chatId, false);
+            return;
+        }
+
+        String category = args[0].toLowerCase();
+        DBManager db = DBManager.getInstance();
+        SportMeme meme;
+
+        switch (category) {
+            case "f1":
+            case "wec":
+            case "nba":
+            case"soccer":
+                meme = db.getRandomMemeBySport(category.toUpperCase());
+                break;
+            case "random":
+                meme = db.getRandomMeme();
+                break;
+            default:
+                send("❌ Categoria non valida. Usa /meme", chatId, false);
+                return;
+        }
+
+        if (meme == null) {
+            send("😕 Nessun meme disponibile per questa categoria.", chatId, false);
+            return;
+        }
+
+        sendContentPicture("🤪 Categoria: " + meme.sport, meme.imageUrl, chatId);
+    }
+    //endregion
 
     //#region Helper
     // Metodi extra per evitare ripetizione codice

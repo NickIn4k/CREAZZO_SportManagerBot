@@ -263,7 +263,6 @@ Registra le richieste effettuate alle API REST per analizzare le preferenze degl
 Contiene meme caricati manualmente per un accesso randomico su richiesta.
 - id
 - sport
-- title
 - img_url
 - created_at
 
