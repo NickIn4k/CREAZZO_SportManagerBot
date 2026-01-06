@@ -264,7 +264,7 @@ Il database gestisce:
 - richieste API
 
 ### ``users``
-Memorizza gli utenti che interagiscono con il bot tramite Telegram.
+Memorizza i dati *crittati* degli utenti che interagiscono con il bot tramite Telegram.
 - id
 - telegram_id (univoco)
 - username

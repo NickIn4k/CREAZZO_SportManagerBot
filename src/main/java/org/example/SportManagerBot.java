@@ -77,6 +77,9 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
         String username = update.getMessage().getFrom().getUserName();
         String firstName = update.getMessage().getFrom().getFirstName();
 
+        if (username == null)
+            username = "unknown";
+
         // Inserisci nel db il nuovo utente
         User user = DBManager.getInstance().getUserByTelegramId(chatId);
         if (user == null) {
@@ -264,7 +267,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                     Dopo, scegli uno dei comandi:
 
                     👥 <b>teams &lt;anno&gt;</b> – Lista squadre
-                    👤 <b>players &lt;teamId&gt;</b> – Giocatori di un team
+                    👤 <b>players &lt;teamId&gt; &lt;anno&gt; </b> – Giocatori di un team
                     🔍 <b>player &lt;playerId&gt; &lt;anno&gt;</b> – Info giocatore
                     🔍 <b>player &lt;nome&gt;</b> – Info giocatore
                     📅 <b>season &lt;anno&gt;</b> – Partite stagione
@@ -1742,7 +1745,7 @@ public class SportManagerBot implements LongPollingSingleThreadUpdateConsumer {
                 handleStatsApi(args[1], user.id, chatId);
                 break;
             default:
-                send("❌ Categoria non valida. Usa <workout|favorites|mostused>", chatId, false);
+                send("❌ Comando /stats non riconosciuto.", chatId, false);
         }
     }
 

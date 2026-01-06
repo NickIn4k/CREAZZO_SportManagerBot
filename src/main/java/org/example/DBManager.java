@@ -46,12 +46,18 @@ public class DBManager {
             return false;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setLong(1, telegramId);
-            stmt.setString(2, username);
-            stmt.setString(3, firstName);
+            // Cripta i dati sensibili
+            String encUsername = Crypto.encrypt(username);
+            String encFirstName = Crypto.encrypt(firstName);
+            String encTelegramId = Crypto.encrypt(Long.toString(telegramId));
+
+            stmt.setString(1, encTelegramId);
+            stmt.setString(2, encUsername);
+            stmt.setString(3, encFirstName);
+
             stmt.executeUpdate();
             return true;
-        } catch (SQLException e) {
+        } catch (Exception e) { // Crypto.encrypt può lanciare Exception
             System.err.println("Errore insert user: " + e.getMessage());
             return false;
         }
@@ -64,23 +70,28 @@ public class DBManager {
             return null;
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setLong(1, telegramId);
+            // Cripta il telegramId per la ricerca
+            String encTelegramId = Crypto.encrypt(Long.toString(telegramId));
+            stmt.setString(1, encTelegramId);
+
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
+                String decUsername = Crypto.decrypt(rs.getString("username"));
+                String decFirstName = Crypto.decrypt(rs.getString("first_name"));
+
                 return new User(
-                    rs.getInt("id"),
-                    rs.getLong("telegram_id"),
-                    rs.getString("username"),
-                    rs.getString("first_name")
+                        rs.getInt("id"),
+                        Long.parseLong(Crypto.decrypt(rs.getString("telegram_id"))),
+                        decUsername,
+                        decFirstName
                 );
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             System.err.println("Errore select user: " + e.getMessage());
         }
         return null;
     }
-
     //#endregion
 
     //#region training_plans
